@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Домашка — вход</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --blue:#3B82C4; --blue-dark:#1E5A9A; --blue-light:#E8F3FC;
+  --brown:#C9A88A; --brown-dark:#8B6F47;
+  --cream:#F8FBFE; --black:#1A1A1A; --gray:#64748B; --danger:#DC2626; --success:#16A34A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:#E8F4FC;color:var(--black);padding:16px;
+}
+.card{
+  width:100%;max-width:400px;background:#fff;border-radius:18px;
+  padding:28px 22px;box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+.logo{font-size:1.5rem;font-weight:800;color:var(--blue-dark);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.sub{color:var(--gray);font-size:.88rem;margin-bottom:20px}
+label{display:block;font-size:.82rem;font-weight:600;color:var(--gray);margin:12px 0 5px}
+input,select{
+  width:100%;padding:11px 12px;border:1.5px solid #E2E8F0;border-radius:10px;
+  font-size:1rem;background:#fbfdff;
+}
+input:focus,select:focus{outline:none;border-color:var(--blue)}
+.btn{
+  width:100%;margin-top:20px;padding:13px;border:none;border-radius:10px;
+  background:var(--blue);color:#fff;font-size:1rem;font-weight:700;cursor:pointer;
+}
+.btn:disabled{opacity:.6}
+.btn:active{background:var(--blue-dark)}
+.msg{margin-top:14px;padding:10px 12px;border-radius:8px;font-size:.86rem;display:none}
+.msg.err{background:#FEF2F2;color:var(--danger);display:block}
+.msg.ok{background:#ECFDF5;color:var(--success);display:block}
+.hint{font-size:.78rem;color:var(--gray);margin-top:6px;line-height:1.4}
+.screen{display:none}
+.screen.active{display:block}
+.ref-box{margin-top:16px;padding:14px;background:var(--blue-light);border-radius:12px;text-align:center}
+.ref-box img{width:150px;height:150px;border-radius:8px;margin:10px auto;display:block}
+.ref-link{font-size:.8rem;word-break:break-all;color:var(--blue-dark);background:#fff;padding:8px;border-radius:6px;margin-top:8px}
+.copy-btn{margin-top:10px;padding:8px 14px;border:1.5px solid var(--blue);background:#fff;color:var(--blue-dark);border-radius:8px;font-weight:600;font-size:.85rem;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">📚 Домашка</div>
+  <div class="sub">Расписание и домашка твоей группы</div>
+
+  <div id="joinScreen" class="screen active">
+    <label>Группа</label>
+    <select id="groupSelect"><option value="">Загрузка...</option></select>
+    <label>Фамилия Имя Отчество</label>
+    <input type="text" id="fullName" placeholder="Иванов Иван Иванович">
+    <div class="hint">Мы проверим тебя по списку группы — вводи так же, как в журнале.</div>
+    <button class="btn" id="joinBtn">Войти</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div id="doneScreen" class="screen">
+    <p style="line-height:1.5">Готово! Ты в группе <b id="doneGroup"></b>.</p>
+
+    <div class="ref-box">
+      <div style="font-size:.85rem;font-weight:600;color:var(--blue-dark)">Приглашай одногруппников — за каждого начисляются очки</div>
+      <img id="refQr" alt="QR-код твоей ссылки">
+      <div class="ref-link" id="refLink"></div>
+      <button class="copy-btn" id="copyBtn">Скопировать ссылку</button>
+    </div>
+
+    <p class="hint" style="margin-top:14px">Дальше сюда подключится само расписание — эта часть ещё в разработке.</p>
+  </div>
+</div>
+
+<script>
+  var SUPABASE_URL = "https://wsrrqwvemfliwzsqlkvg.supabase.co";
+  var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzcnJxd3ZlbWZsaXd6c3Fsa3ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMDc1NDYsImV4cCI6MjEwNDc4MzU0Nn0.mcnzJ6Fh5eTCJSYXQ6rMkBHAbL5JPIC1UId1DlRfuDY";
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function showScreen(id){
+    document.querySelectorAll(".screen").forEach(function(s){ s.classList.remove("active"); });
+    document.getElementById(id).classList.add("active");
+  }
+  function showMsg(text){
+    var m = document.getElementById("msg");
+    m.textContent = text; m.className = "msg err";
+  }
+  function clearMsg(){
+    var m = document.getElementById("msg");
+    m.className = "msg"; m.textContent = "";
+  }
+  function getRefFromUrl(){
+    var params = new URLSearchParams(window.location.search);
+    var ref = params.get("ref");
+    return ref && /^[0-9a-f-]{36}$/i.test(ref) ? ref : null;
+  }
+
+  var refFromLink = getRefFromUrl();
+
+  async function loadGroups(){
+    var sel = document.getElementById("groupSelect");
+    var res = await sb.from("groups").select("id,name").order("name");
+    if(res.error || !res.data || !res.data.length){
+      sel.innerHTML = '<option value="">Групп пока нет</option>';
+      return;
+    }
+    sel.innerHTML = res.data.map(function(g){ return '<option value="'+g.id+'">'+g.name+'</option>'; }).join("");
+  }
+
+  document.getElementById("joinBtn").onclick = async function(){
+    clearMsg();
+    var groupId = document.getElementById("groupSelect").value;
+    var name = document.getElementById("fullName").value.trim();
+    if(!groupId){ showMsg("Выбери группу"); return; }
+    if(!name || name.split(/\s+/).length < 2){ showMsg("Введи полное ФИО, как в журнале"); return; }
+
+    var btn = document.getElementById("joinBtn");
+    btn.disabled = true; btn.textContent = "Проверяем...";
+
+    try{
+      var sess = await sb.auth.getSession();
+      var session = sess.data.session;
+      if(!session){
+        var anon = await sb.auth.signInAnonymously();
+        if(anon.error){ showMsg("Не получилось начать сессию: " + anon.error.message); return; }
+        session = anon.data.session;
+      }
+
+      var rpc = await sb.rpc("join_by_roster", { p_group_id: groupId, p_full_name: name, p_ref: refFromLink });
+      if(rpc.error){
+        if(rpc.error.message.indexOf("not_in_roster") !== -1){
+          showMsg("Не нашли тебя в списке этой группы. Проверь имя (как в журнале) и группу, или обратись к старосте.");
+        } else {
+          showMsg("Ошибка: " + rpc.error.message);
+        }
+        return;
+      }
+
+      var groupRow = await sb.from("groups").select("name").eq("id", groupId).maybeSingle();
+      document.getElementById("doneGroup").textContent = groupRow.data ? groupRow.data.name : "";
+
+      var link = window.location.origin + window.location.pathname + "?ref=" + session.user.id;
+      document.getElementById("refLink").textContent = link;
+      document.getElementById("refQr").src = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(link);
+
+      showScreen("doneScreen");
+      setTimeout(goToApp, 1800);
+    } catch(e){
+      showMsg("Что-то пошло не так: " + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = "Войти";
+    }
+  };
+
+  document.getElementById("copyBtn").onclick = function(){
+    var text = document.getElementById("refLink").textContent;
+    navigator.clipboard.writeText(text).then(function(){
+      var b = document.getElementById("copyBtn");
+      var old = b.textContent; b.textContent = "Скопировано!";
+      setTimeout(function(){ b.textContent = old; }, 1500);
+    });
+  };
+
+  function goToApp(){
+    // The main schedule app isn't wired up to Supabase yet - this is the
+    // handoff point for the next stage.
+    window.location.href = "index_3_updated.html";
+  }
+
+  // If this device already has a session and a profile, skip straight to the app.
+  (async function(){
+    await loadGroups();
+    var sess = await sb.auth.getSession();
+    var session = sess.data.session;
+    if(session){
+      var prof = await sb.from("profiles").select("group_id").eq("id", session.user.id).maybeSingle();
+      if(prof.data && prof.data.group_id){
+        goToApp();
+      }
+    }
+  })();
+</script>
+</body>
+</html>

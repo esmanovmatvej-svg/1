@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Домашка</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --blue:#3B82C4; --blue-dark:#1E5A9A; --blue-light:#E8F3FC;
+  --brown:#C9A88A; --brown-dark:#8B6F47;
+  --cream:#F8FBFE; --white:#fff; --black:#1A1A1A; --gray:#64748B;
+  --success:#16A34A; --warn:#EAB308; --danger:#DC2626;
+  --today:#E08A3C; --today-dark:#B96C24;
+  --shadow:0 4px 14px rgba(0,0,0,.07);
+}
+/* Темы режима доступа: обычный / админ / владелец */
+body.theme-admin{
+  --blue:#8B6F47; --blue-dark:#6F5638; --blue-light:#F3EBDD;
+  --brown:#B79A76; --brown-dark:#765936;
+  --cream:#FBF8F2;
+}
+body.theme-owner{
+  --blue:#8B3A3A; --blue-dark:#642727; --blue-light:#F6E8E6;
+  --brown:#A77A68; --brown-dark:#5C2A2A;
+  --cream:#FCF7F5;
+}
+body.theme-admin .admin-bar{background:linear-gradient(90deg,#6F5638,#9B7A4A)}
+body.theme-owner .owner-bar{background:linear-gradient(90deg,#5C2A2A,#8B3A3A)}
+body.theme-admin header{border-bottom-color:var(--brown-dark)}
+body.theme-owner header{border-bottom-color:var(--brown-dark)}
+body.theme-admin .btn-outline,body.theme-owner .btn-outline{border-color:var(--blue);color:var(--blue-dark)}
+body.theme-admin .week-btn.on,body.theme-owner .week-btn.on{background:var(--blue);border-color:var(--blue-dark)}
+body.theme-admin th,body.theme-owner th{background:var(--blue)}
+body.theme-admin th.left,body.theme-owner th.left{background:var(--brown-dark)}
+body.theme-admin .mod-h,body.theme-owner .mod-h{background:var(--blue-dark)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  color:var(--black);min-height:100vh;line-height:1.4;
+  background-color:#E8F4FC;
+  background-image:
+    /* soft clouds */
+    radial-gradient(ellipse 120px 70px at 10% 15%, rgba(255,255,255,0.7) 0%, transparent 70%),
+    radial-gradient(ellipse 160px 90px at 25% 25%, rgba(255,255,255,0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 100px 60px at 70% 12%, rgba(255,255,255,0.65) 0%, transparent 70%),
+    radial-gradient(ellipse 140px 80px at 85% 30%, rgba(255,255,255,0.5) 0%, transparent 70%),
+    radial-gradient(ellipse 110px 65px at 50% 8%, rgba(255,255,255,0.6) 0%, transparent 70%),
+    radial-gradient(ellipse 90px 50px at 15% 60%, rgba(255,255,255,0.4) 0%, transparent 70%),
+    radial-gradient(ellipse 130px 70px at 80% 70%, rgba(255,255,255,0.45) 0%, transparent 70%),
+    /* soft blue waves at bottom */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320' preserveAspectRatio='none'%3E%3Cpath fill='%23B8D4F0' fill-opacity='0.45' d='M0,192L48,176C96,160,192,128,288,133.3C384,139,480,181,576,186.7C672,192,768,160,864,144C960,128,1056,128,1152,149.3C1248,171,1344,213,1392,234.7L1440,256L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3Cpath fill='%239EC5E8' fill-opacity='0.35' d='M0,256L48,240C96,224,192,192,288,181.3C384,171,480,181,576,192C672,203,768,213,864,197.3C960,181,1056,139,1152,133.3C1248,128,1344,160,1392,176L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, center bottom;
+  background-size: auto, auto, auto, auto, auto, auto, auto, 100% 220px;
+  background-attachment: fixed;
+}
+header{
+  background:rgba(255,255,255,.93);backdrop-filter:blur(10px);
+  border-bottom:2px solid var(--brown);padding:11px 14px;
+  position:sticky;top:0;z-index:50;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
+  box-shadow:var(--shadow);
+}
+.logo{font-size:1.2rem;font-weight:700;color:var(--blue-dark);display:flex;align-items:center;gap:7px}
+.logo span{background:var(--blue);color:#fff;font-size:.68rem;padding:2px 8px;border-radius:20px}
+.header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.user-chip{
+  display:flex;align-items:center;gap:7px;
+  background:var(--blue-light);border:1px solid #c5dcf0;
+  padding:4px 10px 4px 5px;border-radius:24px;font-size:.88rem;font-weight:500;
+}
+.avatar{
+  width:28px;height:28px;border-radius:50%;background:var(--brown);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.75rem;color:#fff;font-weight:700;overflow:hidden;flex-shrink:0;
+}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.edit-btn{background:none;border:none;color:var(--blue);font-size:.75rem;font-weight:600;cursor:pointer}
+button{cursor:pointer;border:none;border-radius:8px;font-size:.84rem;font-weight:600;padding:7px 13px;font-family:inherit}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-outline{background:#fff;border:1.5px solid var(--blue);color:var(--blue)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-sm{padding:5px 10px;font-size:.78rem}
+.admin-bar,.owner-bar{
+  color:#fff;text-align:center;padding:6px;font-size:.8rem;font-weight:600;display:none;
+}
+.admin-bar{background:linear-gradient(90deg,var(--brown-dark),#a67c2a)}
+.owner-bar{background:linear-gradient(90deg,#1e3a5f,#2c5282)}
+.admin-bar.on,.owner-bar.on{display:block}
+main{max-width:1100px;margin:0 auto;padding:14px 10px 50px}
+.weeks{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.week-btn{
+  background:#fff;border:2px solid #e0d0bc;color:var(--gray);
+  padding:8px 18px;border-radius:22px;font-weight:600;box-shadow:var(--shadow);
+}
+.week-btn.on{background:var(--blue);border-color:var(--blue-dark);color:#fff}
+.week-title{font-size:1.15rem;font-weight:700;color:var(--blue-dark);margin-bottom:10px}
+.week-title input{font-size:1rem;font-weight:700;border:1.5px solid var(--brown);border-radius:6px;padding:4px 8px;width:160px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1.5px solid var(--brown);border-radius:12px;background:#fff;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th{background:var(--blue);color:#fff;font-size:.72rem;font-weight:600;padding:10px 2px;text-align:center;white-space:nowrap;border-right:1px solid rgba(255,255,255,.2)}
+th.left{background:var(--brown-dark);min-width:68px;width:68px}
+td{border:1px solid #e8dccf;vertical-align:top;padding:0}
+.day{background:#F3E9DB;text-align:center;padding:8px 2px;font-weight:700;font-size:.85rem;min-width:68px;width:68px}
+.day .d-name{display:block}
+.day .d-date{display:block;font-weight:400;font-size:.68rem;color:var(--gray);margin-top:2px}
+.day input{width:60px;font-size:.68rem;padding:2px;border:1px solid #ccc;border-radius:4px;margin-top:3px;text-align:center}
+.slot{
+  height:92px;min-width:100px;padding:5px 5px;cursor:pointer;position:relative;background:#fff;
+  transition:background .12s;
+}
+.slot:active{background:var(--blue-light)}
+.slot.has{background:#F7FBFF}
+.slot.done-green{background:#ECFDF5 !important;border-left:3px solid var(--success)}
+.slot.due-yellow{background:#FEFCE8 !important;border-left:3px solid var(--warn)}
+.slot.due-red{background:#FEF2F2 !important;border-left:3px solid var(--danger)}
+/* today / current-lesson highlight */
+th.current-slot{background:var(--today) !important}
+td.day.current-day{background:#FBEAD4;border-left:3px solid var(--today)}
+td.day.current-day .d-date{color:var(--today-dark);font-weight:700}
+td.slot.current-day,td.slot.has.current-day{background:#FFF8EF}
+td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inset 0 0 0 2px var(--today)}
+.subslot.current-day{background:#FFF8EF}
+.subslot.current-slot{background:#FCE7CB;box-shadow:inset 0 0 0 2px var(--today)}
+.current-status{
+  max-width:1100px;margin:0 auto 12px;padding:11px 16px;border-radius:14px;
+  background:linear-gradient(90deg,var(--today),#EFA85F);color:#fff;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  box-shadow:var(--shadow);font-size:.88rem;
+}
+.current-status.break-status{background:linear-gradient(90deg,var(--blue),var(--blue-dark))}
+.current-status .status-time{font-size:.78rem;opacity:.9;white-space:nowrap}
+.current-status .current-next{font-weight:600;margin-left:4px}
+.s-subj{font-weight:700;font-size:.78rem;color:var(--blue-dark);line-height:1.2;margin-bottom:1px;word-break:break-word;max-height:2.3em;overflow:hidden}
+.s-meta{font-size:.66rem;color:var(--gray);line-height:1.2;max-height:2.5em;overflow:hidden}
+.tag-dz{position:absolute;top:2px;right:2px;background:var(--success);color:#fff;font-size:.55rem;font-weight:700;padding:1px 4px;border-radius:5px}
+.tag-t{position:absolute;bottom:2px;right:2px;background:var(--brown);color:var(--black);font-size:.55rem;font-weight:700;padding:1px 4px;border-radius:5px}
+/* split cell */
+.slot.split{display:flex;padding:0;height:92px}
+.subslot{
+  flex:1;padding:5px 4px;border-right:1px dashed #d4c4b0;position:relative;overflow:hidden;
+}
+.subslot:last-child{border-right:none}
+.subslot.done-green{background:#ECFDF5}
+.subslot.due-yellow{background:#FEFCE8}
+.subslot.due-red{background:#FEF2F2}
+.hint{text-align:center;padding:18px 12px;color:var(--gray);font-size:.9rem}
+/* modals */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.42);display:none;align-items:flex-end;justify-content:center;z-index:200}
+.ov.open{display:flex}
+.mod{background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:up .25s ease}
+@keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@media(min-width:600px){.ov{align-items:center;padding:16px}.mod{border-radius:16px;max-height:88vh}}
+.mod-h{background:var(--blue);color:#fff;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:2}
+.mod-h h3{font-size:1.05rem;font-weight:700}
+.mod-x{background:rgba(255,255,255,.22);color:#fff;width:30px;height:30px;border-radius:50%;font-size:1.2rem;display:flex;align-items:center;justify-content:center}
+.mod-b{padding:16px}
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:.7rem;font-weight:600;color:var(--gray);margin-bottom:3px;text-transform:uppercase}
+.fg input,.fg textarea{width:100%;padding:10px 11px;border:1.5px solid #ddd;border-radius:8px;font-size:.94rem;font-family:inherit}
+.fg textarea{min-height:78px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.info{background:var(--blue-light);border-radius:8px;padding:10px 12px;margin-bottom:9px}
+.info .l{font-size:.66rem;color:var(--gray);font-weight:600;text-transform:uppercase}
+.info .v{font-size:.94rem;font-weight:600}
+.hw{background:var(--cream);border-left:4px solid var(--blue);padding:10px 12px;border-radius:0 8px 8px 0;white-space:pre-wrap;font-size:.9rem;margin-bottom:12px}
+.topics{margin-top:12px;border-top:1px solid #eee;padding-top:11px}
+.topics h4{font-size:.9rem;color:var(--blue-dark);margin-bottom:8px}
+.topic{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F3E9DB;border-radius:8px;margin-bottom:6px}
+.topic.ok{background:#E8F5E9}
+.topic .tt{flex:1;font-weight:500;font-size:.86rem}
+.topic .tw{font-size:.74rem;color:var(--success);font-weight:600}
+.add-t{display:flex;gap:6px;margin-top:6px}
+.add-t input{flex:1;padding:8px 10px;border:1.5px solid #ddd;border-radius:8px;font-size:.9rem}
+.acts{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+.done-btn{
+  width:100%;padding:12px;border-radius:10px;font-size:.95rem;font-weight:700;margin-top:8px;
+  border:2px solid var(--success);background:#ECFDF5;color:var(--success);
+}
+.done-btn.done{background:var(--success);color:#fff}
+.login-inner{text-align:center;padding:6px 0}
+.login-inner input{width:100%;max-width:220px;padding:12px;border:1.5px solid #ddd;border-radius:8px;font-size:1rem;text-align:center;margin:11px 0 13px}
+.err{color:var(--danger);font-size:.84rem;margin-top:8px;display:none}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:11px 20px;border-radius:24px;font-weight:600;font-size:.85rem;z-index:300;opacity:0;transition:.25s;pointer-events:none}
+.toast.on{opacity:1}
+.panel{background:#fff;border-radius:14px;border:1.5px solid var(--brown);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.panel h3{font-size:1rem;color:var(--blue-dark);margin-bottom:12px}
+.stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0e8dc;font-size:.9rem}
+.stat-row:last-child{border-bottom:none}
+.avatar-upload{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.avatar-big{width:56px;height:56px;border-radius:50%;background:var(--brown);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.2rem;overflow:hidden}
+.avatar-big img{width:100%;height:100%;object-fit:cover}
+.split-toggle{margin:10px 0;padding:10px;background:#F3E9DB;border-radius:8px;font-size:.9rem}
+.teacher-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0e8dc}
+.teacher-row:last-child{border-bottom:none}
+.avatar-sm{width:32px;height:32px;border-radius:50%;background:var(--brown);color:#fff;font-weight:700;font-size:.8rem;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.avatar-sm img{width:100%;height:100%;object-fit:cover}
+.teacher-name{flex:1;font-size:.88rem;font-weight:500}
+#errBox{background:#FEE2E2;color:#991B1B;padding:11px;margin:10px;border-radius:8px;font-size:.84rem;display:none}
+</style>
+</head>
+<body>
+<div class="owner-bar" id="ownerBar">Владелец · полный доступ</div>
+<div class="admin-bar" id="adminBar">Режим администратора</div>
+<header>
+  <div class="logo">📚 Домашка <span id="gBadge">Группа</span></div>
+  <div class="header-right">
+    <div class="user-chip" id="userChip">
+      <div class="avatar" id="headerAvatar">?</div>
+      <span id="nameText">Гость</span>
+      <button class="edit-btn" id="editProfileBtn">изм.</button>
+    </div>
+    <button class="btn-outline btn-sm" id="adminBtn">Админ</button>
+    <button class="btn-outline btn-sm" id="importBtn" style="display:none">Импорт</button>
+    <button class="btn-outline btn-sm" id="syncBtn" style="display:none">Обновить с сайта</button>
+    <button class="btn-danger btn-sm" id="clearAllBtn" style="display:none">Очистить всё</button>
+  </div>
+</header>
+<div id="errBox"></div>
+<main>
+  <div class="weeks" id="weeks"></div>
+  <div id="area"></div>
+  <div id="ownerPanel" style="display:none"></div>
+</main>
+
+<!-- Detail modal -->
+<div class="ov" id="ov1">
+  <div class="mod">
+    <div class="mod-h"><h3 id="mTitle">Пара</h3><button class="mod-x" id="c1">×</button></div>
+    <div class="mod-b" id="mBody"></div>
+  </div>
+</div>
+<!-- Login -->
+<div class="ov" id="ov2">
+  <div class="mod" style="max-width:340px">
+    <div class="mod-h"><h3 id="loginTitle">Вход</h3><button class="mod-x" id="c2">×</button></div>
+    <div class="mod-b">
+      <div class="login-inner">
+        <p id="loginHint" style="color:#64748B;font-size:.9rem">Введите пароль</p>
+        <input type="password" id="pass" placeholder="Пароль" autocomplete="off">
+        <br><button class="btn-blue" id="loginBtn" style="width:140px">Войти</button>
+        <p class="err" id="loginErr">Неверный пароль</p>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Profile -->
+<div class="ov" id="ov3">
+  <div class="mod" style="max-width:360px">
+    <div class="mod-h"><h3>Профиль</h3><button class="mod-x" id="c3">×</button></div>
+    <div class="mod-b">
+      <div class="avatar-upload">
+        <div class="avatar-big" id="profAvatar">?</div>
+        <div>
+          <button class="btn-outline btn-sm" id="pickPhoto">Выбрать фото</button>
+          <input type="file" id="photoInput" accept="image/*" style="display:none">
+          <p style="font-size:.72rem;color:#64748B;margin-top:4px">до 200 КБ</p>
+        </div>
+      </div>
+      <div class="fg"><label>Имя</label><input type="text" id="profName" placeholder="Твоё имя" maxlength="20"></div>
+      <div class="acts"><button class="btn-blue" id="saveProf">Сохранить</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Import modal -->
+<div class="ov" id="ovImport">
+  <div class="mod" style="max-width:520px">
+    <div class="mod-h"><h3>Импорт расписания</h3><button class="mod-x" id="cImport">×</button></div>
+    <div class="mod-b">
+      <p style="font-size:.9rem;color:#64748B;margin-bottom:12px">
+        Скопируй таблицу с сайта универа и вставь сюда. Система попробует сама разложить предметы по дням и парам.
+      </p>
+      <div class="fg">
+        <label>Вставь скопированное расписание</label>
+        <textarea id="importText" placeholder="Вставь сюда текст расписания..." style="min-height:180px"></textarea>
+      </div>
+      <div class="acts">
+        <button class="btn-blue" id="doImport">Распознать и заполнить</button>
+      </div>
+      <div id="importResult" style="margin-top:14px;font-size:.88rem;display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var ADMIN_PASS="128WTROK9";
+  var OWNER_PASS="OWN-128-WTROK9-X7K9";
+  var KEY="domashka_v5";
+  var UKEY="domashka_user_v5";
+  var SUPABASE_URL = "https://wsrrqwvemfliwzsqlkvg.supabase.co";
+  var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzcnJxd3ZlbWZsaXd6c3Fsa3ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMDc1NDYsImV4cCI6MjEwNDc4MzU0Nn0.mcnzJ6Fh5eTCJSYXQ6rMkBHAbL5JPIC1UId1DlRfuDY";
+  var sb = (typeof supabase !== "undefined") ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  var myGroupId = null; // resolved from the logged-in profile once on load
+  var TIMES=["08:30–10:00","10:15–11:45","12:00–13:30","14:10–15:35","15:45–17:10","17:20–18:45","18:50–20:15","20:20–21:50"];
+  var DAYS=["Пн","Вт","Ср","Чт","Пт","Сб"];
+
+  var data=null, user={name:"",avatar:"",role:"user"}, admin=false, owner=false, wi=0, cur=null, activePart=0;
+
+  function emptySlot(){ return {subject:"",teacher:"",room:"",groups:"",hw:"",due:"",topics:[],done:{}} ; }
+  function emptyWeek(n){
+    return {title:"Неделя "+n, days:DAYS.map(function(name){
+      return {name:name, date:"", slots:TIMES.map(function(){ return {split:false, parts:[emptySlot()]}; })};
+    })};
+  }
+  function defData(){ return {group:"Группа", weeks:[emptyWeek(1),emptyWeek(2)], admins:[], stats:{}, teachers:{}}; }
+
+  function load(){
+    try{
+      var raw=localStorage.getItem(KEY);
+      data=raw?JSON.parse(raw):defData();
+      if(!data.weeks) data=defData();
+      // migrate old format if needed
+      data.weeks.forEach(function(w){
+        w.days.forEach(function(d){
+          d.slots.forEach(function(s,si){
+            if(!s.parts){
+              var old=s;
+              d.slots[si]={split:false, parts:[{
+                subject:old.subject||"", teacher:old.teacher||"", room:old.room||"",
+                groups:old.groups||"", hw:old.hw||"", due:old.due||"", topics:old.topics||[], done:old.done||{}
+              }]};
+            }
+          });
+        });
+      });
+      if(!data.admins) data.admins=[];
+      if(!data.stats) data.stats={};
+      if(!data.teachers) data.teachers={};
+    }catch(e){data=defData();}
+    try{var ur=localStorage.getItem(UKEY); if(ur) user=JSON.parse(ur);}catch(e){}
+    if(user.name){
+      if(!data.stats[user.name]) data.stats[user.name]={visits:0,cells:0,last:""};
+      data.stats[user.name].visits=(data.stats[user.name].visits||0)+1;
+      data.stats[user.name].last=new Date().toLocaleString("ru");
+      save();
+    }
+    updateUserUI();
+  }
+  function save(){ try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){} try{localStorage.setItem(UKEY,JSON.stringify(user));}catch(e){} }
+  function updateUserUI(){
+    document.getElementById("nameText").textContent=user.name||"Гость";
+    var av=document.getElementById("headerAvatar");
+    if(user.avatar) av.innerHTML='<img src="'+user.avatar+'">';
+    else av.textContent=user.name?user.name.charAt(0).toUpperCase():"?";
+  }
+  function esc(s){if(!s)return"";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+  // Resize + recompress a picked photo client-side so a normal phone photo
+  // (often several MB) ends up as a tiny base64 string safe for localStorage.
+  function compressImage(file, maxDim, quality, cb){
+    if(!file || file.type.indexOf("image/")!==0){ cb(null); return; }
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var img=new Image();
+      img.onload=function(){
+        var w=img.width, h=img.height;
+        if(w>h){ if(w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; } }
+        else { if(h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; } }
+        var canvas=document.createElement("canvas");
+        canvas.width=w; canvas.height=h;
+        canvas.getContext("2d").drawImage(img,0,0,w,h);
+        cb(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror=function(){ cb(null); };
+      img.src=e.target.result;
+    };
+    reader.onerror=function(){ cb(null); };
+    reader.readAsDataURL(file);
+  }
+  function toast(m){var el=document.getElementById("toast");el.textContent=m;el.classList.add("on");setTimeout(function(){el.classList.remove("on");},2200);}
+  function showConfirm(msg, onYes){
+    var ov=document.createElement("div");
+    ov.className="ov open"; ov.style.zIndex=500;
+    ov.innerHTML='<div class="mod" style="max-width:340px"><div class="mod-h"><h3>Подтверждение</h3></div>'+
+      '<div class="mod-b"><p style="margin-bottom:16px">'+esc(msg)+'</p>'+
+      '<div class="acts"><button class="btn-danger" id="confYes">Да</button><button class="btn-outline" id="confNo">Отмена</button></div></div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector("#confYes").onclick=function(){document.body.removeChild(ov); onYes();};
+    ov.querySelector("#confNo").onclick=function(){document.body.removeChild(ov);};
+    ov.onclick=function(e){ if(e.target===ov) document.body.removeChild(ov); };
+  }
+
+  function daysUntil(dueStr){
+    if(!dueStr) return null;
+    var parts=dueStr.split(".");
+    if(parts.length!==3) return null;
+    var d=new Date(+parts[2], +parts[1]-1, +parts[0]);
+    var today=new Date(); today.setHours(0,0,0,0);
+    d.setHours(0,0,0,0);
+    return Math.round((d-today)/86400000);
+  }
+  function statusClass(part){
+    if(!user.name) return "";
+    if(part.done && part.done[user.name]) return "done-green";
+    var left=daysUntil(part.due);
+    if(left===null) return "";
+    if(left<=1) return "due-red";
+    if(left<=2) return "due-yellow";
+    return "";
+  }
+
+  function teacherPhoto(name){
+    if(!name) return "";
+    var key=name.trim();
+    var t=data.teachers && data.teachers[key];
+    return (t && t.photo) ? t.photo : "";
+  }
+  function allTeacherNames(){
+    var set={};
+    data.weeks.forEach(function(w){
+      w.days.forEach(function(d){
+        d.slots.forEach(function(s){
+          s.parts.forEach(function(p){ if(p.teacher && p.teacher.trim()) set[p.teacher.trim()]=true; });
+        });
+      });
+    });
+    Object.keys(data.teachers||{}).forEach(function(n){ set[n]=true; });
+    return Object.keys(set).sort(function(a,b){ return a.localeCompare(b,"ru"); });
+  }
+
+  // Merge officially-scraped schedule data (subject/teacher/room/groups/date
+  // only) without ever touching homework, due dates, topics or done-marks -
+  // those live only in the browser and are never overwritten by a sync.
+  function mergeOfficialSchedule(remote){
+    if(!remote || !remote.weeks) return;
+    remote.weeks.forEach(function(rw, wIdx){
+      if(!data.weeks[wIdx]) return;
+      (rw.days||[]).forEach(function(rd, dIdx){
+        var localDay=data.weeks[wIdx].days[dIdx];
+        if(!localDay) return;
+        if(rd.date) localDay.date=rd.date;
+        (rd.slots||[]).forEach(function(rs, sIdx){
+          var localSlot=localDay.slots[sIdx];
+          if(!localSlot || !rs) return;
+          localSlot.split=!!rs.split;
+          var rParts=rs.parts||[];
+          rParts.forEach(function(rp, pIdx){
+            if(!localSlot.parts[pIdx]) localSlot.parts[pIdx]=emptySlot();
+            var lp=localSlot.parts[pIdx];
+            lp.subject=rp.subject||""; lp.teacher=rp.teacher||"";
+            lp.room=rp.room||""; lp.groups=rp.groups||"";
+          });
+          if(rParts.length && rParts.length<localSlot.parts.length){
+            localSlot.parts=localSlot.parts.slice(0, Math.max(1,rParts.length));
+          }
+        });
+      });
+    });
+    save();
+  }
+
+  // Turn Supabase's flat schedule_slots rows into the same {weeks:[...]}
+  // shape mergeOfficialSchedule() already expects, so the merge logic
+  // (and its "never touch homework" guarantee) stays exactly one code path
+  // regardless of where the data came from.
+  function rowsToWeeksShape(rows, teacherNameById){
+    var weeks=[{days:[]},{days:[]}];
+    for(var w=0; w<2; w++) for(var d=0; d<6; d++)
+      weeks[w].days.push({date:"", slots: TIMES.map(function(){ return {split:false, parts:[]}; })});
+    (rows||[]).forEach(function(r){
+      var wIdx=r.week_number-1;
+      if(!weeks[wIdx]) return;
+      var day=weeks[wIdx].days[r.day_index];
+      if(!day) return;
+      if(r.lesson_date){
+        var m=String(r.lesson_date).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if(m) day.date=m[3]+"."+m[2]+"."+m[1];
+      }
+      var slot=day.slots[r.slot_index];
+      if(!slot) return;
+      if(r.part_index===1) slot.split=true;
+      slot.parts[r.part_index]={
+        subject:r.subject||"",
+        teacher:r.teacher_id ? (teacherNameById[r.teacher_id]||"") : "",
+        room:r.room||"",
+        groups:r.groups_label||""
+      };
+    });
+    weeks.forEach(function(w){ w.days.forEach(function(d){ d.slots.forEach(function(s){
+      if(!s.parts[0]) s.parts[0]={subject:"",teacher:"",room:"",groups:""};
+    }); }); });
+    return {weeks:weeks};
+  }
+
+  async function syncFromSupabase(showFeedback){
+    if(!sb){ if(showFeedback) toast("Supabase не подключен"); return; }
+    try{
+      var sess=await sb.auth.getSession();
+      var session=sess.data.session;
+      if(!session){ if(showFeedback) toast("Сначала войди через страницу входа"); return; }
+
+      if(!myGroupId){
+        var prof=await sb.from("profiles").select("group_id").eq("id", session.user.id).maybeSingle();
+        if(!prof.data || !prof.data.group_id){ if(showFeedback) toast("Профиль ещё не привязан к группе"); return; }
+        myGroupId=prof.data.group_id;
+      }
+
+      var teachersRes=await sb.from("teachers").select("id, full_name").eq("group_id", myGroupId);
+      var teacherNameById={};
+      (teachersRes.data||[]).forEach(function(t){ teacherNameById[t.id]=t.full_name; });
+
+      var slotsRes=await sb.from("schedule_slots").select("*").eq("group_id", myGroupId);
+      if(slotsRes.error) throw new Error(slotsRes.error.message);
+
+      mergeOfficialSchedule(rowsToWeeksShape(slotsRes.data, teacherNameById));
+      render();
+      if(showFeedback) toast("Расписание обновлено");
+    }catch(e){
+      if(showFeedback) toast("Не удалось обновить: "+e.message);
+    }
+  }
+
+  function render(){
+    try{
+      document.getElementById("gBadge").textContent=data.group||"Группа";
+      document.body.classList.toggle("theme-admin", admin && !owner);
+      document.body.classList.toggle("theme-owner", owner);
+      document.getElementById("adminBar").className="admin-bar"+(admin&&!owner?" on":"");
+      document.getElementById("ownerBar").className="owner-bar"+(owner?" on":"");
+      document.getElementById("adminBtn").textContent=(admin||owner)?"Выйти":"Админ";
+      document.getElementById("importBtn").style.display=(admin||owner)?"inline-block":"none";
+      document.getElementById("syncBtn").style.display=(admin||owner)?"inline-block":"none";
+      document.getElementById("clearAllBtn").style.display=(admin||owner)?"inline-block":"none";
+      document.getElementById("weeks").innerHTML="";
+      drawTable();
+      if(owner) drawOwnerPanel(); else document.getElementById("ownerPanel").style.display="none";
+    }catch(e){document.getElementById("errBox").style.display="block";document.getElementById("errBox").textContent="Ошибка: "+e.message;}
+  }
+
+  function getTodayInfo(){
+    var now=new Date();
+    var dayIndex=(now.getDay()+6)%7; // Mon=0 ... Sun=6
+    if(dayIndex>5) return {now:now,day:-1,slot:-1,week:-1,break:false,next:-1};
+    var mins=now.getHours()*60+now.getMinutes();
+    var slot=-1, br=false, next=-1;
+    for(var i=0;i<TIMES.length;i++){
+      var m=TIMES[i].match(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/);
+      if(!m) continue;
+      var st=+m[1]*60 + +m[2], en=+m[3]*60 + +m[4];
+      if(mins>=st && mins<en){ slot=i; break; }
+      if(mins<st){ next=i; br=true; break; }
+    }
+    if(slot<0 && next<0) next=-1;
+    return {now:now,day:dayIndex,slot:slot,week:-1,break:br,next:next};
+  }
+
+  function weekMatchesToday(w){
+    var today=new Date();
+    today.setHours(0,0,0,0);
+    for(var d=0;d<w.days.length;d++){
+      var ds=w.days[d].date;
+      if(!ds) continue;
+      var m=ds.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+      if(!m) continue;
+      var dt=new Date(+m[3],+m[2]-1,+m[1]); dt.setHours(0,0,0,0);
+      if(dt.getTime()===today.getTime()) return true;
+    }
+    return false;
+  }
+
+  function timeToMinutes(str){
+    var m=str.match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]*60 + +m[2]) : null;
+  }
+
+  function hasContentFrom(weekIdx, dayIdx, fromSlot){
+    if(weekIdx<0 || dayIdx<0 || !data.weeks[weekIdx]) return false;
+    var day=data.weeks[weekIdx].days[dayIdx];
+    if(!day) return false;
+    for(var k=fromSlot;k<day.slots.length;k++){
+      var slot=day.slots[k];
+      for(var p=0;p<slot.parts.length;p++){ if(slot.parts[p] && slot.parts[p].subject) return true; }
+    }
+    return false;
+  }
+
+  function currentWeekIndex(info){
+    if(info.day<0) return -1;
+    for(var w=0;w<data.weeks.length;w++) if(weekMatchesToday(data.weeks[w])) return w;
+    // If dates are not entered, use the first week as the active one.
+    return data.weeks.length ? 0 : -1;
+  }
+
+  function renderCurrentStatus(info, activeWeek){
+    var el=document.getElementById("currentStatus");
+    if(!el) return;
+    if(info.day<0 || activeWeek<0){
+      el.style.display="none"; return;
+    }
+    var dayName=DAYS[info.day];
+    var nowStr=info.now.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+    if(info.slot>=0){
+      var range=TIMES[info.slot];
+      var subject="";
+      var slot=data.weeks[activeWeek].days[info.day].slots[info.slot];
+      if(slot){
+        subject=slot.parts[0]&&slot.parts[0].subject ? slot.parts[0].subject : "";
+        if(slot.split && slot.parts[1]&&slot.parts[1].subject){
+          subject=subject ? subject+" · "+slot.parts[1].subject : slot.parts[1].subject;
+        }
+      }
+      el.className="current-status";
+      el.innerHTML='<div><strong>Сейчас · '+dayName+' · '+(info.slot+1)+'-я пара</strong>'+
+        (subject?' · '+esc(subject):'')+'</div><div class="status-time">'+nowStr+' · '+range+'</div>';
+    }else if(info.break && info.next>=0){
+      var nextSlot=data.weeks[activeWeek].days[info.day].slots[info.next];
+      var nextSub="";
+      if(nextSlot){
+        nextSub=nextSlot.parts[0]&&nextSlot.parts[0].subject ? nextSlot.parts[0].subject : "";
+        if(nextSlot.split && nextSlot.parts[1]&&nextSlot.parts[1].subject){
+          nextSub=nextSub ? nextSub+" · "+nextSlot.parts[1].subject : nextSlot.parts[1].subject;
+        }
+      }
+      el.className="current-status break-status";
+      el.innerHTML='<div><strong>Перемена</strong> · '+dayName+
+        (nextSub?' <span class="current-next">Следующая: '+esc(nextSub)+'</span>':'')+
+        '</div><div class="status-time">'+nowStr+'</div>';
+    }else{
+      el.style.display="none";
+      return;
+    }
+    el.style.display="flex";
+  }
+
+  function drawTable(){
+    var html="";
+    var info=getTodayInfo();
+    var activeWeek=currentWeekIndex(info);
+    if(info.break && info.next>=0 && !hasContentFrom(activeWeek, info.day, info.next)){
+      info.break=false; info.next=-1;
+    }
+
+    html+='<div id="currentStatus" class="current-status" style="display:none"></div>';
+
+    for(var wIdx=0; wIdx<data.weeks.length; wIdx++){
+      var week=data.weeks[wIdx];
+      var isActiveWeek=(wIdx===activeWeek);
+      if(admin||owner){
+        html+='<div class="week-title" style="margin-top:'+(wIdx?18:0)+'px"><input class="wt-input" data-w="'+wIdx+'" value="'+esc(week.title)+'"></div>';
+      } else {
+        html+='<div class="week-title" style="margin-top:'+(wIdx?18:0)+'px">'+esc(week.title)+'</div>';
+      }
+      html+='<div class="scroll"><table><thead><tr><th class="left">День</th>';
+      for(var ti=0;ti<TIMES.length;ti++){
+        html+='<th class="'+(isActiveWeek&&ti===info.slot?'current-slot':'')+'">'+TIMES[ti]+'</th>';
+      }
+      html+='</tr></thead><tbody>';
+      for(var di=0;di<week.days.length;di++){
+        var day=week.days[di];
+        var isToday=(di===info.day && isActiveWeek);
+        html+='<tr><td class="day '+(isToday?'current-day':'')+'"><span class="d-name">'+day.name+'</span>';
+        if(admin||owner) html+='<input class="date-inp" data-w="'+wIdx+'" data-d="'+di+'" value="'+esc(day.date)+'" placeholder="дата">';
+        else if(day.date) html+='<span class="d-date">'+esc(day.date)+'</span>';
+        html+='</td>';
+        for(var si=0;si<day.slots.length;si++){
+          var slot=day.slots[si];
+          var curClass=(isToday?' current-day':'')+(isActiveWeek&&isToday&&si===info.slot?' current-slot':'');
+          if(slot.split && slot.parts.length===2){
+            html+='<td class="slot split'+curClass+'" data-w="'+wIdx+'" data-d="'+di+'" data-t="'+si+'">';
+            for(var sp=0;sp<2;sp++){
+              var part=slot.parts[sp];
+              var sc=statusClass(part);
+              var has=part.subject||part.hw||(part.topics&&part.topics.length);
+              html+='<div class="subslot '+(has?"has ":"")+sc+(isActiveWeek&&isToday&&si===info.slot?' current-slot':'')+'" data-part="'+sp+'">';
+              if(part.hw||(part.topics&&part.topics.length)) html+='<span class="tag-dz">ДЗ</span>';
+              html+='<div class="s-subj">'+(part.subject?esc(part.subject):'<span style="color:#ccc">—</span>')+'</div>';
+              html+='<div class="s-meta">';
+              if(part.groups) html+=esc(part.groups);
+              else if(part.teacher) html+=esc(part.teacher);
+              html+='</div></div>';
+            }
+            html+='</td>';
+          } else {
+            var part=slot.parts[0];
+            var sc=statusClass(part);
+            var has=part.subject||part.hw||(part.topics&&part.topics.length);
+            var tn=part.topics?part.topics.length:0;
+            var tk=part.topics?part.topics.filter(function(x){return x.by;}).length:0;
+            html+='<td class="slot '+(has?"has ":"")+sc+curClass+'" data-w="'+wIdx+'" data-d="'+di+'" data-t="'+si+'" data-part="0">';
+            if(part.hw||tn) html+='<span class="tag-dz">ДЗ</span>';
+            if(tn) html+='<span class="tag-t">'+tk+'/'+tn+'</span>';
+            html+='<div class="s-subj">'+(part.subject?esc(part.subject):'<span style="color:#ccc;font-weight:400">—</span>')+'</div>';
+            html+='<div class="s-meta">';
+            if(part.teacher) html+=esc(part.teacher)+'<br>';
+            if(part.room) html+=esc(part.room);
+            if(part.groups) html+=(part.room?'<br>':'')+esc(part.groups);
+            html+='</div></td>';
+          }
+        }
+        html+='</tr>';
+      }
+      html+='</tbody></table></div>';
+    }
+    document.getElementById("area").innerHTML=html;
+    renderCurrentStatus(info,activeWeek);
+
+    if(admin||owner){
+      var wts=document.getElementById("area").querySelectorAll(".wt-input");
+      for(var i=0;i<wts.length;i++){
+        wts[i].onchange=function(){
+          var w=+this.getAttribute("data-w");
+          data.weeks[w].title=this.value.trim()||("Неделя "+(w+1));
+          save(); render();
+        };
+      }
+      var dins=document.getElementById("area").querySelectorAll(".date-inp");
+      for(var k=0;k<dins.length;k++){
+        dins[k].onchange=function(){
+          var w=+this.getAttribute("data-w"), d=+this.getAttribute("data-d");
+          data.weeks[w].days[d].date=this.value.trim();
+          save(); render();
+        };
+      }
+    }
+    var cells=document.getElementById("area").querySelectorAll(".slot");
+    for(var c=0;c<cells.length;c++){
+      cells[c].onclick=function(e){
+        var partEl=e.target.closest(".subslot");
+        activePart=partEl?+partEl.getAttribute("data-part"):+(this.getAttribute("data-part")||0);
+        cur={w:+this.getAttribute("data-w"),d:+this.getAttribute("data-d"),t:+this.getAttribute("data-t")};
+        openModal();
+      };
+    }
+  }
+
+
+  function drawOwnerPanel(){
+    var p=document.getElementById("ownerPanel");
+    p.style.display="block";
+    var h='<div class="panel"><h3>📊 Статистика</h3>';
+    var names=Object.keys(data.stats||{});
+    if(!names.length) h+='<p style="color:#64748B;font-size:.9rem">Пока нет данных</p>';
+    else{
+      names.sort(function(a,b){return (data.stats[b].cells||0)-(data.stats[a].cells||0);});
+      for(var i=0;i<names.length;i++){
+        var st=data.stats[names[i]];
+        var isAdm=data.admins.indexOf(names[i])>=0;
+        h+='<div class="stat-row"><span>'+esc(names[i])+(isAdm?' <b style="color:var(--blue)">админ</b>':'')+'</span>';
+        h+='<span>заходов: '+(st.visits||0)+' · ячеек: '+(st.cells||0)+'</span></div>';
+      }
+    }
+    h+='</div><div class="panel"><h3>👥 Админы</h3>';
+    if(!data.admins.length) h+='<p style="color:#64748B;font-size:.9rem">Пока нет</p>';
+    else for(var j=0;j<data.admins.length;j++){
+      h+='<div class="stat-row"><span>'+esc(data.admins[j])+'</span>';
+      h+='<button class="btn-danger btn-sm" onclick="window._rmAdmin(\''+esc(data.admins[j])+'\')">Убрать</button></div>';
+    }
+    h+='</div>';
+    h+='<div class="panel"><h3>👨‍🏫 Преподаватели</h3>';
+    h+='<p style="color:#64748B;font-size:.82rem;margin-bottom:10px">Фото привязывается по точному совпадению ФИО, как оно указано в паре.</p>';
+    var tNames=allTeacherNames();
+    if(!tNames.length){ h+='<p style="color:#64748B;font-size:.9rem">Пока никого нет</p>'; }
+    else{
+      tNames.forEach(function(n){
+        var ph=teacherPhoto(n);
+        h+='<div class="teacher-row" data-tname="'+esc(n)+'">'+
+           '<div class="avatar-sm">'+(ph?'<img src="'+ph+'">':esc(n.charAt(0).toUpperCase()))+'</div>'+
+           '<span class="teacher-name">'+esc(n)+'</span>'+
+           '<button class="btn-outline btn-sm t-photo-btn">'+(ph?"Изменить фото":"Добавить фото")+'</button>'+
+           (ph?'<button class="btn-danger btn-sm t-photo-rm">×</button>':'')+
+           '</div>';
+      });
+    }
+    h+='<div class="add-t" style="margin-top:10px"><input id="newTeacherName" placeholder="ФИО нового преподавателя"><button class="btn-blue btn-sm" id="addTeacherBtn">+</button></div>';
+    h+='<input type="file" id="teacherPhotoInput" accept="image/*" style="display:none">';
+    h+='</div>';
+    p.innerHTML=h;
+
+    var pendingTeacherName=null;
+    var tInput=document.getElementById("teacherPhotoInput");
+    var rows=p.querySelectorAll(".teacher-row");
+    for(var ri=0;ri<rows.length;ri++){
+      (function(row){
+        var name=row.getAttribute("data-tname");
+        var btn=row.querySelector(".t-photo-btn");
+        if(btn) btn.onclick=function(){ pendingTeacherName=name; tInput.click(); };
+        var rmBtn=row.querySelector(".t-photo-rm");
+        if(rmBtn) rmBtn.onclick=function(){
+          if(data.teachers[name]) delete data.teachers[name].photo;
+          save(); render(); toast("Фото убрано");
+        };
+      })(rows[ri]);
+    }
+    if(tInput) tInput.onchange=function(e){
+      var file=e.target.files[0]; if(!file || !pendingTeacherName) return;
+      if(file.size>15*1024*1024){ toast("Файл слишком большой, выбери другое фото"); return; }
+      compressImage(file, 140, 0.72, function(dataUrl){
+        if(!dataUrl){ toast("Не получилось обработать фото"); return; }
+        if(!data.teachers) data.teachers={};
+        if(!data.teachers[pendingTeacherName]) data.teachers[pendingTeacherName]={};
+        data.teachers[pendingTeacherName].photo=dataUrl;
+        save(); render(); toast("Фото сохранено");
+      });
+      tInput.value="";
+    };
+    var addTBtn=document.getElementById("addTeacherBtn");
+    var newTInput=document.getElementById("newTeacherName");
+    if(addTBtn) addTBtn.onclick=function(){
+      var nm=newTInput.value.trim();
+      if(!nm){ toast("Введи ФИО"); return; }
+      if(!data.teachers) data.teachers={};
+      if(!data.teachers[nm]) data.teachers[nm]={};
+      save(); render(); toast("Преподаватель добавлен");
+    };
+    if(newTInput) newTInput.onkeydown=function(e){ if(e.key==="Enter" && addTBtn) addTBtn.click(); };
+  }
+  window._rmAdmin=function(name){data.admins=data.admins.filter(function(n){return n!==name;});save();render();toast("Админ убран");};
+
+  function openModal(){
+    var slot=data.weeks[cur.w].days[cur.d].slots[cur.t];
+    var part=slot.parts[activePart]||slot.parts[0];
+    var day=data.weeks[cur.w].days[cur.d];
+    var time=TIMES[cur.t];
+    document.getElementById("mTitle").textContent=part.subject||((admin||owner)?"Новая пара":"Пара");
+    var h="";
+    if(admin||owner){
+      h+='<div class="split-toggle">';
+      if(slot.split){
+        h+='Ячейка разделена на 2 группы. Сейчас редактируешь <b>часть '+(activePart+1)+'</b>. ';
+        h+='<button class="btn-outline btn-sm" id="unsplitBtn">Объединить обратно</button>';
+      } else {
+        h+='<button class="btn-outline btn-sm" id="splitBtn">Разделить на 2 группы</button>';
+      }
+      h+='</div>';
+      h+='<div class="fg"><label>Предмет</label><input id="f1" value="'+esc(part.subject)+'" placeholder="Математика"></div>';
+      h+='<div class="row2"><div class="fg"><label>Преподаватель</label><div style="display:flex;gap:8px;align-items:center"><input id="f2" value="'+esc(part.teacher)+'" placeholder="ФИО" style="flex:1"><span id="f2preview" class="avatar-sm" style="width:34px;height:34px">'+(teacherPhoto(part.teacher)?'<img src="'+teacherPhoto(part.teacher)+'">':'')+'</span></div></div>';
+      h+='<div class="fg"><label>Аудитория</label><input id="f3" value="'+esc(part.room)+'" placeholder="Лек./314"></div></div>';
+      h+='<div class="fg"><label>Группы / подгруппа</label><input id="f4" value="'+esc(part.groups)+'" placeholder="124(1) гр."></div>';
+      h+='<div class="fg"><label>Домашнее задание</label><textarea id="f5" placeholder="Текст задания...">'+esc(part.hw)+'</textarea></div>';
+      h+='<div class="fg"><label>Сдать до (ДД.ММ.ГГГГ)</label><input id="fDue" value="'+esc(part.due)+'" placeholder="15.09.2026"></div>';
+      h+='<div class="topics"><h4>Темы докладов</h4><div id="tl"></div>';
+      h+='<div class="add-t"><input id="nt" placeholder="Новая тема..."><button class="btn-blue btn-sm" id="at">+</button></div></div>';
+      h+='<div class="acts"><button class="btn-blue" id="sv">Сохранить</button><button class="btn-danger btn-sm" id="cl">Очистить</button></div>';
+    } else {
+      h+='<div class="info"><div class="l">Когда</div><div class="v">'+day.name+(day.date?' · '+esc(day.date):'')+' · '+time+'</div></div>';
+      if(part.subject) h+='<div class="info"><div class="l">Предмет</div><div class="v">'+esc(part.subject)+'</div></div>';
+      if(part.teacher){
+        var tPhoto=teacherPhoto(part.teacher);
+        h+='<div class="info"><div class="l">Преподаватель</div><div class="v" style="display:flex;align-items:center;gap:8px">'+
+           (tPhoto?'<img src="'+tPhoto+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0">':'')+
+           '<span>'+esc(part.teacher)+'</span></div></div>';
+      }
+      h+='<div class="row2">';
+      if(part.room) h+='<div class="info"><div class="l">Аудитория</div><div class="v">'+esc(part.room)+'</div></div>'; else h+='<div></div>';
+      if(part.groups) h+='<div class="info"><div class="l">Группы</div><div class="v">'+esc(part.groups)+'</div></div>'; else h+='<div></div>';
+      h+='</div>';
+      if(part.due) h+='<div class="info"><div class="l">Сдать до</div><div class="v">'+esc(part.due)+'</div></div>';
+      h+='<h4 style="font-size:.9rem;color:var(--blue-dark);margin:10px 0 6px">Домашнее задание</h4>';
+      h+=part.hw?'<div class="hw">'+esc(part.hw)+'</div>':'<p style="color:#64748B;font-style:italic;margin-bottom:10px">Не задано</p>';
+      if(part.topics&&part.topics.length) h+='<div class="topics"><h4>Темы (можно забронировать)</h4><div id="tl"></div></div>';
+      // done button
+      if(part.hw||(part.topics&&part.topics.length)){
+        var isDone=user.name && part.done && part.done[user.name];
+        h+='<button class="done-btn'+(isDone?' done':'')+'" id="doneBtn">'+(isDone?'✓ Выполнено':'Отметить выполненным')+'</button>';
+      }
+    }
+    document.getElementById("mBody").innerHTML=h;
+    document.getElementById("ov1").classList.add("open");
+    drawTopics(part);
+    if(admin||owner){
+      document.getElementById("sv").onclick=saveSlot;
+      document.getElementById("cl").onclick=clearSlot;
+      var f2el=document.getElementById("f2"), f2prev=document.getElementById("f2preview");
+      if(f2el && f2prev){
+        f2el.oninput=function(){
+          var ph=teacherPhoto(this.value);
+          f2prev.innerHTML=ph?'<img src="'+ph+'">':'';
+        };
+      }
+      document.getElementById("at").onclick=addTopic;
+      document.getElementById("nt").onkeydown=function(e){if(e.key==="Enter")addTopic();};
+      var sp=document.getElementById("splitBtn");
+      if(sp) sp.onclick=function(){
+        slot.split=true;
+        if(slot.parts.length<2) slot.parts.push(emptySlot());
+        save(); close1(); render(); toast("Ячейка разделена");
+      };
+      var usp=document.getElementById("unsplitBtn");
+      if(usp) usp.onclick=function(){
+        slot.split=false;
+        slot.parts=[slot.parts[0]];
+        save(); close1(); render(); toast("Ячейка объединена");
+      };
+    } else {
+      var db=document.getElementById("doneBtn");
+      if(db) db.onclick=toggleDone;
+    }
+  }
+
+  function drawTopics(part){
+    var list=document.getElementById("tl");
+    if(!list) return;
+    if(!part.topics||!part.topics.length){
+      list.innerHTML=(admin||owner)?'<p style="color:#999;font-size:.84rem">Тем нет</p>':'';
+      return;
+    }
+    var h="";
+    for(var i=0;i<part.topics.length;i++){
+      var t=part.topics[i];
+      h+='<div class="topic'+(t.by?' ok':'')+'"><span class="tt">'+esc(t.title)+'</span>';
+      if(t.by){
+        h+='<span class="tw">✓ '+esc(t.by)+'</span>';
+        if(admin||owner) h+='<button class="btn-outline btn-sm" onclick="window._un('+i+')">Снять</button>';
+      } else {
+        if(admin||owner) h+='<button class="btn-danger btn-sm" onclick="window._rm('+i+')">×</button>';
+        else h+='<button class="btn-blue btn-sm" onclick="window._cl('+i+')">Забрать</button>';
+      }
+      h+='</div>';
+    }
+    list.innerHTML=h;
+  }
+
+  function saveSlot(){
+    var slot=data.weeks[cur.w].days[cur.d].slots[cur.t];
+    var part=slot.parts[activePart];
+    var wasEmpty=!part.subject;
+    part.subject=document.getElementById("f1").value.trim();
+    part.teacher=document.getElementById("f2").value.trim();
+    part.room=document.getElementById("f3").value.trim();
+    part.groups=document.getElementById("f4").value.trim();
+    part.hw=document.getElementById("f5").value.trim();
+    part.due=document.getElementById("fDue").value.trim();
+    if(wasEmpty&&part.subject&&user.name){
+      if(!data.stats[user.name]) data.stats[user.name]={visits:0,cells:0,last:""};
+      data.stats[user.name].cells=(data.stats[user.name].cells||0)+1;
+    }
+    save(); close1(); render(); toast("Сохранено");
+  }
+  function clearSlot(){
+    showConfirm("Очистить?", function(){
+      var slot=data.weeks[cur.w].days[cur.d].slots[cur.t];
+      slot.parts[activePart]=emptySlot();
+      save(); close1(); render(); toast("Очищено");
+    });
+  }
+  function addTopic(){
+    var inp=document.getElementById("nt");
+    var title=inp.value.trim();
+    if(!title) return;
+    var part=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];
+    if(!part.topics) part.topics=[];
+    part.topics.push({title:title,by:""});
+    inp.value=""; save(); drawTopics(part);
+  }
+  function toggleDone(){
+    if(!user.name){toast("Сначала укажи имя");document.getElementById("editProfileBtn").click();return;}
+    var part=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];
+    if(!part.done) part.done={};
+    if(part.done[user.name]) delete part.done[user.name];
+    else part.done[user.name]=true;
+    save(); close1(); render();
+    toast(part.done[user.name]?"Отмечено выполненным":"Отметка снята");
+  }
+  window._rm=function(i){var p=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];p.topics.splice(i,1);save();drawTopics(p);};
+  window._cl=function(i){
+    if(!user.name){toast("Сначала укажи имя");document.getElementById("editProfileBtn").click();return;}
+    var p=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];
+    if(p.topics[i].by){toast("Уже занято");return;}
+    p.topics[i].by=user.name; save(); drawTopics(p); render(); toast("Забронировано");
+  };
+  window._un=function(i){var p=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];p.topics[i].by="";save();drawTopics(p);render();};
+
+  function close1(){document.getElementById("ov1").classList.remove("open");cur=null;}
+
+  function openLogin(){
+    if(admin||owner){admin=false;owner=false;render();toast("Вышли");return;}
+    document.getElementById("loginTitle").textContent="Вход";
+    document.getElementById("loginHint").textContent="Введите пароль";
+    document.getElementById("pass").value="";
+    document.getElementById("loginErr").style.display="none";
+    document.getElementById("ov2").classList.add("open");
+    setTimeout(function(){document.getElementById("pass").focus();},180);
+  }
+  function doLogin(){
+    var val=document.getElementById("pass").value;
+    if(val===OWNER_PASS){
+      owner=true; admin=true;
+      document.getElementById("ov2").classList.remove("open"); render(); toast("Режим владельца");
+    } else if(val===ADMIN_PASS){
+      admin=true;
+      if(user.name&&data.admins.indexOf(user.name)<0){data.admins.push(user.name);save();}
+      document.getElementById("ov2").classList.remove("open"); render(); toast("Режим администратора");
+    } else {
+      document.getElementById("loginErr").style.display="block";
+      document.getElementById("pass").value="";
+    }
+  }
+
+  // profile
+  document.getElementById("editProfileBtn").onclick=function(){
+    document.getElementById("profName").value=user.name||"";
+    var av=document.getElementById("profAvatar");
+    if(user.avatar) av.innerHTML='<img src="'+user.avatar+'">';
+    else av.textContent=user.name?user.name.charAt(0).toUpperCase():"?";
+    document.getElementById("ov3").classList.add("open");
+  };
+  document.getElementById("pickPhoto").onclick=function(){document.getElementById("photoInput").click();};
+  document.getElementById("photoInput").onchange=function(e){
+    var file=e.target.files[0]; if(!file) return;
+    if(file.size>15*1024*1024){toast("Файл слишком большой, выбери другое фото");return;}
+    compressImage(file, 160, 0.75, function(dataUrl){
+      if(!dataUrl){ toast("Не получилось обработать фото"); return; }
+      user.avatar=dataUrl;
+      document.getElementById("profAvatar").innerHTML='<img src="'+user.avatar+'">';
+    });
+  };
+  document.getElementById("saveProf").onclick=function(){
+    user.name=document.getElementById("profName").value.trim();
+    save(); updateUserUI(); document.getElementById("ov3").classList.remove("open");
+    toast(user.name?"Профиль сохранён":"Имя сброшено"); render();
+  };
+
+  document.getElementById("adminBtn").onclick=function(){openLogin();};
+  document.getElementById("loginBtn").onclick=doLogin;
+  document.getElementById("pass").onkeydown=function(e){if(e.key==="Enter")doLogin();};
+  document.getElementById("c1").onclick=close1;
+  document.getElementById("c2").onclick=function(){document.getElementById("ov2").classList.remove("open");};
+  document.getElementById("c3").onclick=function(){document.getElementById("ov3").classList.remove("open");};
+  document.getElementById("ov1").onclick=function(e){if(e.target.id==="ov1")close1();};
+  document.getElementById("ov2").onclick=function(e){if(e.target.id==="ov2")document.getElementById("ov2").classList.remove("open");};
+  document.getElementById("ov3").onclick=function(e){if(e.target.id==="ov3")document.getElementById("ov3").classList.remove("open");};
+
+
+  // ===== CLEAR ALL =====
+  document.getElementById("clearAllBtn").onclick = function(){
+    showConfirm("Очистить ВСЕ пары во всех неделях (предметы, ДЗ, темы)? Даты и названия недель останутся.", function(){
+      showConfirm("Точно? Это действие нельзя отменить.", function(){
+        data.weeks.forEach(function(w){
+          w.days.forEach(function(d){
+            d.slots.forEach(function(s){
+              for (var pi = 0; pi < s.parts.length; pi++) s.parts[pi] = emptySlot();
+            });
+          });
+        });
+        save(); render();
+        toast("Всё очищено");
+      });
+    });
+  };
+
+  // ===== IMPORT =====
+  document.getElementById("importBtn").onclick = function(){
+    document.getElementById("importText").value = "";
+    document.getElementById("importResult").style.display = "none";
+    document.getElementById("ovImport").classList.add("open");
+  };
+  document.getElementById("cImport").onclick = function(){ document.getElementById("ovImport").classList.remove("open"); };
+  document.getElementById("ovImport").onclick = function(e){ if(e.target.id==="ovImport") document.getElementById("ovImport").classList.remove("open"); };
+
+  document.getElementById("doImport").onclick = function(){
+    var text=document.getElementById("importText").value;
+    if(!text || !text.trim()){ toast("Вставь текст расписания"); return; }
+    text=text.replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+
+    var dayMap={"пн":0,"понедельник":0,"вт":1,"вторник":1,"ср":2,"среда":2,"чт":3,"четверг":3,"пт":4,"пятница":4,"сб":5,"суббота":5};
+    var currentWeek=0,currentDay=-1,columnIndex=0,filled=0,splitFilled=0;
+
+    function isDateOnly(s){return /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(s);}
+    function isWeekLine(s){return /^\d+\s*недел/i.test(s);}
+    function isTimeHeaderLine(s){return (s.match(/\d{1,2}[:.]\d{2}/g)||[]).length>=2;}
+    // Accepts: "123(1) гр.", "123 (2) гр.", "123, 124 (1) гр." and similar.
+    function isGroupsLine(s){return /^[\d\s,./-]*\(\s*[123]\s*\)\s*гр\.?\s*$/i.test(s) || /^[\d\s,./-]+\s*гр\.?\s*$/i.test(s);}
+    function groupsParenNum(s){var m=s.match(/\(\s*(\d+)\s*\)/);return m?parseInt(m[1],10):null;}
+    function isRoomLine(s){return /^(лек|пр|лаб)\.?\s*\/.*ауд/i.test(s)||/ауд\.?\s*$/i.test(s)||/^\d+\s*(ауд|каб)\.?$/i.test(s);}
+    function isTeacherLine(s){return /^[А-ЯЁA-Z][а-яёa-z-]+(\s+[А-ЯЁA-Z]\.){1,2}\s*$/.test(s);}
+
+    function blankPart(){
+      return {subject:"",teacher:"",room:"",groups:"",hw:"",due:"",topics:[],done:{}};
+    }
+
+    function parseOne(lines){
+      var out=blankPart();
+      for(var i=0;i<lines.length;i++){
+        var l=lines[i];
+        if(isGroupsLine(l) && !out.groups) out.groups=l;
+        else if(isRoomLine(l) && !out.room) out.room=l;
+        else if(isTeacherLine(l) && out.subject && !out.teacher) out.teacher=l;
+        else out.subject=(out.subject?out.subject+" ":"")+l;
+      }
+      return out;
+    }
+
+    // A copied cell may contain both subgroup 1 and subgroup 2.
+    // Split it by group markers instead of treating the whole cell as one subject.
+    function parseCell(lines){
+      var entries=[], current=[];
+      for(var i=0;i<lines.length;i++){
+        if(isGroupsLine(lines[i]) && current.length && entries.length){
+          entries.push(current); current=[lines[i]];
+        }else{
+          current.push(lines[i]);
+        }
+      }
+      if(current.length) entries.push(current);
+
+      var parsed=[];
+      for(var j=0;j<entries.length;j++){
+        var p=parseOne(entries[j]);
+        if(p.subject||p.groups) parsed.push(p);
+      }
+
+      // If there are two explicit subgroup entries, preserve both.
+      if(parsed.length>=2){
+        var a=null,b=null,other=[];
+        parsed.forEach(function(p){
+          var n=groupsParenNum(p.groups);
+          if(n===1 && !a) a=p;
+          else if(n===2 && !b) b=p;
+          else other.push(p);
+        });
+        if(a&&b) return [a,b].concat(other);
+      }
+      return parsed;
+    }
+
+    function putPart(slot,part,partIndex){
+      if(!part || (!part.subject&&!part.groups)) return;
+      var clean={
+        subject:(part.subject||"").substring(0,100),
+        teacher:(part.teacher||"").substring(0,60),
+        room:(part.room||"").substring(0,40),
+        groups:(part.groups||"").substring(0,50),
+        hw:"",due:"",topics:[],done:{}
+      };
+      if(partIndex===0 && !slot.parts[0].subject && !slot.parts[0].groups){
+        slot.parts[0]=clean;
+      }else if(partIndex===1){
+        slot.split=true;
+        if(slot.parts.length<2) slot.parts.push(blankPart());
+        slot.parts[1]=clean;
+      }else if(!slot.parts[0].subject && !slot.parts[0].groups){
+        slot.parts[0]=clean;
+      }else{
+        slot.split=true;
+        if(slot.parts.length<2) slot.parts.push(blankPart());
+        slot.parts[1]=clean;
+      }
+      filled++;
+    }
+
+    function assignParsed(parsed){
+      if(!parsed.length || currentDay<0 || columnIndex<0 || columnIndex>7) return;
+      var slot=data.weeks[currentWeek].days[currentDay].slots[columnIndex];
+
+      // Best case: both subgroups are inside the same copied cell.
+      if(parsed.length>=2){
+        var p1=parsed.filter(function(p){return groupsParenNum(p.groups)===1;})[0];
+        var p2=parsed.filter(function(p){return groupsParenNum(p.groups)===2;})[0];
+        if(p1&&p2){
+          putPart(slot,p1,0); putPart(slot,p2,1); splitFilled++; return;
+        }
+      }
+
+      // One entry in a cell: if it explicitly says subgroup 1/2, pair by the
+      // same timetable column. This handles sites that copy the two subgroup
+      // rows into adjacent fragments.
+      var p=parsed[0];
+      var n=groupsParenNum(p.groups);
+      if(n===1){
+        putPart(slot,p,0);
+      }else if(n===2){
+        // Prefer the same time slot. If subgroup 1 is already there, place #2.
+        if(slot.parts[0].subject||slot.parts[0].groups){
+          putPart(slot,p,1); splitFilled++;
+        }else{
+          // Fallback for a site that places (2) before (1).
+          putPart(slot,p,0);
+        }
+      }else{
+        putPart(slot,p,0);
+      }
+    }
+
+    // Keep empty tabs: their position is meaningful in copied HTML tables.
+    var chunks=text.split("\t");
+    for(var c=0;c<chunks.length;c++){
+      var lines=chunks[c].split("\n").map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+      var li=0;
+      while(li<lines.length){
+        var lo=lines[li].toLowerCase();
+        if(isWeekLine(lo)){
+          currentWeek=/^2/.test(lo)?1:0;
+          currentDay=-1;columnIndex=0;li++;continue;
+        }
+        if(dayMap.hasOwnProperty(lo)){
+          currentDay=dayMap[lo];columnIndex=0;li++;
+          if(li<lines.length && isDateOnly(lines[li])){
+            if(data.weeks[currentWeek]&&data.weeks[currentWeek].days[currentDay]) data.weeks[currentWeek].days[currentDay].date=lines[li];
+            li++;
+          }
+          continue;
+        }
+        if(isTimeHeaderLine(lines[li])){li++;continue;}
+        break;
+      }
+      var contentLines=lines.slice(li);
+      if(currentDay>=0 && contentLines.length) assignParsed(parseCell(contentLines));
+      if(currentDay>=0) columnIndex++;
+    }
+
+    save();render();document.getElementById("ovImport").classList.remove("open");
+    if(filled>0){
+      toast("Заполнено ячеек: "+filled+(splitFilled?" · подгруппы распознаны: "+splitFilled:""));
+    }else{
+      toast("Не удалось распознать. Попробуй вставить ещё раз или заполни вручную");
+    }
+  };
+
+
+  document.getElementById("syncBtn").onclick=function(){ syncFromSupabase(true); };
+
+  load(); render();
+  syncFromSupabase(false);
+  // Refresh the current-day/current-lesson highlight without reloading the page.
+  setInterval(function(){ render(); }, 30000);
+})();
+</script>
+</body>
+</html>
