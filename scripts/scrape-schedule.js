@@ -21,7 +21,8 @@ const path = require("path");
 
 const TARGET_URL =
   process.env.TIMETABLE_URL ||
-  "https://sibstrin.ru/timetable/group/?arrFilter_648=530233946&set_filter=%D0%9F%D0%BE%D0%BA%D0%B0%D0%B7%D0%B0%D1%82%D1%8C";
+  "https://sibstrin.ru/timetable/group/";
+const GROUP_NAME = process.env.TIMETABLE_GROUP_NAME || "128";
 
 const TIMES = [
   "08:30-10:00", "10:15-11:45", "12:00-13:30", "14:10-15:35",
@@ -86,8 +87,64 @@ async function run() {
           return text;
         }
       }
+      // Fallback: a lone checkbox with no matching label text nearby
+      // (common for lightweight "I'm not a robot" gates).
+      var boxes = Array.prototype.slice.call(document.querySelectorAll('input[type="checkbox"]'));
+      if (boxes.length === 1 && !boxes[0].checked) {
+        boxes[0].click();
+        return "(checkbox)";
+      }
       return null;
     });
+  }
+
+  await tryDismissGate();
+  await new Promise(function (r) { setTimeout(r, 500); });
+
+  // The site expects a real form submission: pick the group from the
+  // "Учебная группа" dropdown by its visible text (works for ANY group,
+  // not just one hardcoded id), then click "Показать".
+  async function selectGroupAndSubmit(groupName) {
+    var selected = await page.evaluate(function (name) {
+      var selects = Array.prototype.slice.call(document.querySelectorAll("select"));
+      for (var i = 0; i < selects.length; i++) {
+        var sel = selects[i];
+        var opts = Array.prototype.slice.call(sel.options);
+        var match = opts.filter(function (o) { return o.textContent.trim() === name; })[0];
+        if (match) {
+          sel.value = match.value;
+          sel.dispatchEvent(new Event("change", { bubbles: true }));
+          return true;
+        }
+      }
+      return false;
+    }, groupName);
+
+    if (!selected) return false;
+
+    return page.evaluate(function () {
+      var candidates = Array.prototype.slice.call(
+        document.querySelectorAll('button, input[type="submit"], a')
+      );
+      for (var i = 0; i < candidates.length; i++) {
+        var el = candidates[i];
+        var text = (el.innerText || el.value || "").trim();
+        if (/показать/i.test(text)) { el.click(); return true; }
+      }
+      var anySelect = document.querySelector("select");
+      var form = anySelect ? anySelect.closest("form") : null;
+      if (form) { form.submit(); return true; }
+      return false;
+    });
+  }
+
+
+  console.log("Selecting group '" + GROUP_NAME + "' in the form...");
+  var formOk = await selectGroupAndSubmit(GROUP_NAME);
+  if (!formOk) {
+    console.log("Could not find/select group '" + GROUP_NAME + "' in the dropdown, or no submit button/form found.");
+  } else {
+    await new Promise(function (r) { setTimeout(r, 1500); });
   }
 
   var tableFound = false;
@@ -215,7 +272,6 @@ async function run() {
 
 var SUPABASE_URL = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 var SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-var GROUP_NAME = process.env.TIMETABLE_GROUP_NAME || "128";
 
 async function sbFetch(path, options) {
   options = options || {};
