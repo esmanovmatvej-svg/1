@@ -9,7 +9,11 @@ on:
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest
+    # Runs on YOUR own computer (a self-hosted runner), not GitHub's cloud
+    # servers - the target site blocks GitHub's/Azure's known datacenter IP
+    # ranges as "VPN/proxy traffic", so the job has to come from a normal
+    # residential IP instead. See README.md for how to set the runner up.
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
