@@ -64,8 +64,18 @@ async function run() {
   const StealthPlugin = require("puppeteer-extra-plugin-stealth");
   puppeteer.use(StealthPlugin());
   const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    // Headless Chrome has technical fingerprints (e.g. software/SwiftShader
+    // GPU rendering) that survive the stealth plugin's patching and get
+    // caught by more advanced bot-detection - confirmed by real Chrome on
+    // this exact machine/network working fine while headless Puppeteer did
+    // not. A real, visible browser window sidesteps that entirely. This
+    // will briefly pop up a real Chrome window when the runner executes.
+    headless: false,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-blink-features=AutomationControlled"
+    ]
   });
   const page = await browser.newPage();
   await page.setUserAgent(
