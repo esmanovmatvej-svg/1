@@ -22,6 +22,7 @@ const path = require("path");
 const TARGET_URL =
   process.env.TIMETABLE_URL ||
   "https://sibstrin.ru/timetable/group/";
+const HOMEPAGE_URL = "https://sibstrin.ru/";
 const GROUP_NAME = process.env.TIMETABLE_GROUP_NAME || "128";
 
 const TIMES = [
@@ -107,6 +108,34 @@ async function run() {
   await tryDismissGate();
   await new Promise(function (r) { setTimeout(r, 500); });
 
+  async function clickScheduleLinkFromHomepage() {
+    console.log("Looking for the 'Расписание обучения группы' link on the homepage...");
+    var linkClicked = await page.evaluate(function () {
+      var candidates = Array.prototype.slice.call(document.querySelectorAll("a"));
+      for (var i = 0; i < candidates.length; i++) {
+        var text = (candidates[i].textContent || "").trim().toLowerCase();
+        if (text.indexOf("расписание") !== -1 && text.indexOf("групп") !== -1 && text.indexOf("сесси") === -1) {
+          candidates[i].click();
+          return true;
+        }
+      }
+      return false;
+    });
+    if (!linkClicked) {
+      console.log("Could not find the 'Расписание обучения группы' link on the homepage.");
+      return false;
+    }
+    console.log("Clicked the link, waiting for the schedule page to load...");
+    try {
+      await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 20000 });
+    } catch (e) {
+      await new Promise(function (r) { setTimeout(r, 2000); });
+    }
+    await tryDismissGate();
+    await new Promise(function (r) { setTimeout(r, 500); });
+    return true;
+  }
+
   // The site expects a real form submission: pick the group from the
   // "Учебная группа" dropdown by its visible text (works for ANY group,
   // not just one hardcoded id), then click "Показать".
@@ -148,8 +177,19 @@ async function run() {
   console.log("Selecting group '" + GROUP_NAME + "' in the form...");
   var formOk = await selectGroupAndSubmit(GROUP_NAME);
   if (!formOk) {
-    console.log("Could not find/select group '" + GROUP_NAME + "' in the dropdown, or no submit button/form found.");
-  } else {
+    console.log("Could not find/select group '" + GROUP_NAME + "' directly at " + TARGET_URL + " - trying via the homepage instead.");
+    await page.goto(HOMEPAGE_URL, { waitUntil: "networkidle2", timeout: 60000 });
+    await tryDismissGate();
+    await new Promise(function (r) { setTimeout(r, 500); });
+    var viaHomepage = await clickScheduleLinkFromHomepage();
+    if (viaHomepage) {
+      formOk = await selectGroupAndSubmit(GROUP_NAME);
+      if (!formOk) {
+        console.log("Still could not find/select group '" + GROUP_NAME + "' after going via the homepage.");
+      }
+    }
+  }
+  if (formOk) {
     await new Promise(function (r) { setTimeout(r, 1500); });
   }
 
