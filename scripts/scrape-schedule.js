@@ -24,6 +24,8 @@ const TARGET_URL =
   "https://sibstrin.ru/timetable/group/";
 const HOMEPAGE_URL = "https://sibstrin.ru/";
 const GROUP_NAME = process.env.TIMETABLE_GROUP_NAME || "128";
+const RUCAPTCHA_KEY = process.env.RUCAPTCHA_KEY || "";
+const RUCAPTCHA_HOST = "https://rucaptcha.com";
 
 const TIMES = [
   "08:30-10:00", "10:15-11:45", "12:00-13:30", "14:10-15:35",
@@ -87,10 +89,119 @@ async function run() {
   console.log("Opening", TARGET_URL);
   await page.goto(TARGET_URL, { waitUntil: "networkidle2", timeout: 60000 });
 
+  // ---------- Real captcha solving via rucaptcha.com (Yandex SmartCaptcha) ----------
+  function rucaptchaRequest(url) {
+    return new Promise(function (resolve, reject) {
+      require("https").get(url, function (res) {
+        var body = "";
+        res.on("data", function (chunk) { body += chunk; });
+        res.on("end", function () {
+          try { resolve(JSON.parse(body)); } catch (e) { reject(new Error("Bad response from rucaptcha: " + body)); }
+        });
+      }).on("error", reject);
+    });
+  }
+
+  async function findYandexSitekey() {
+    return page.evaluate(function () {
+      // Strategy 1: an element with a data-sitekey attribute (the standard
+      // way Yandex SmartCaptcha widgets are marked up).
+      var el = document.querySelector("[data-sitekey]");
+      if (el) return el.getAttribute("data-sitekey");
+      // Strategy 2: an iframe whose src embeds the sitekey as a query param.
+      var iframes = Array.prototype.slice.call(document.querySelectorAll("iframe"));
+      for (var i = 0; i < iframes.length; i++) {
+        var src = iframes[i].src || "";
+        if (src.indexOf("captcha.yandex") !== -1) {
+          var m = src.match(/[?&]sitekey=([^&]+)/);
+          if (m) return decodeURIComponent(m[1]);
+        }
+      }
+      // Strategy 3: a "ysc1_..." style key sitting anywhere in the raw HTML
+      // (inline script config, etc.)
+      var m2 = document.documentElement.innerHTML.match(/ysc1_[A-Za-z0-9_-]+/);
+      if (m2) return m2[0];
+      return null;
+    });
+  }
+
+  async function solveYandexCaptcha() {
+    if (!RUCAPTCHA_KEY) {
+      console.log("No RUCAPTCHA_KEY set - can't auto-solve a real captcha.");
+      return false;
+    }
+    var sitekey = await findYandexSitekey();
+    if (!sitekey) {
+      console.log("No Yandex SmartCaptcha sitekey found on the page - nothing to solve here.");
+      return false;
+    }
+    console.log("Found Yandex SmartCaptcha sitekey, sending to rucaptcha.com...");
+
+    var submitUrl = RUCAPTCHA_HOST + "/in.php?key=" + encodeURIComponent(RUCAPTCHA_KEY) +
+      "&method=yandex&sitekey=" + encodeURIComponent(sitekey) +
+      "&pageurl=" + encodeURIComponent(page.url()) + "&json=1";
+    var submitRes = await rucaptchaRequest(submitUrl);
+    if (submitRes.status !== 1) {
+      console.log("rucaptcha rejected the request: " + JSON.stringify(submitRes));
+      return false;
+    }
+    var taskId = submitRes.request;
+    console.log("rucaptcha task id " + taskId + " - waiting for a human worker to solve it (usually 10-40s)...");
+
+    var token = null;
+    for (var attempt = 0; attempt < 24 && !token; attempt++) {
+      await new Promise(function (r) { setTimeout(r, 5000); });
+      var pollUrl = RUCAPTCHA_HOST + "/res.php?key=" + encodeURIComponent(RUCAPTCHA_KEY) +
+        "&action=get&id=" + taskId + "&json=1";
+      var pollRes = await rucaptchaRequest(pollUrl);
+      if (pollRes.status === 1) {
+        token = pollRes.request;
+      } else if (pollRes.request !== "CAPCHA_NOT_READY") {
+        console.log("rucaptcha error while polling: " + JSON.stringify(pollRes));
+        return false;
+      }
+    }
+    if (!token) {
+      console.log("Gave up waiting for rucaptcha after 2 minutes.");
+      return false;
+    }
+    console.log("Got a solved token, injecting it into the page...");
+
+    var applied = await page.evaluate(function (tok) {
+      var input = document.querySelector('input[name="smart-token"]');
+      if (input) {
+        input.value = tok;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      // Yandex SmartCaptcha widgets are usually configured with a callback
+      // function name; try the common global names if present.
+      var cbNames = ["smartCaptchaCallback", "onCaptchaSuccess", "captchaCallback"];
+      for (var i = 0; i < cbNames.length; i++) {
+        if (typeof window[cbNames[i]] === "function") { window[cbNames[i]](tok); break; }
+      }
+      // Also try submitting the enclosing form directly, in case the site
+      // just checks the hidden field's value on submit.
+      if (input) {
+        var form = input.closest("form");
+        if (form) { form.requestSubmit ? form.requestSubmit() : form.submit(); }
+        return true;
+      }
+      return false;
+    }, token);
+
+    if (!applied) {
+      console.log("Solved the captcha but couldn't find the smart-token field to apply it to.");
+    }
+    return applied;
+  }
+
   // Some sites show a one-time "confirm you're not a robot" / "continue"
   // button to automated browsers even without a real captcha. Try clicking
   // anything that looks like that, a few times, before giving up.
   async function tryDismissGate() {
+    var solved = await solveYandexCaptcha();
+    if (solved) return "(captcha solved via rucaptcha)";
     return page.evaluate(function () {
       var keywordRe = /(не робот|я человек|подтвердить|продолжить|войти|verify|i am human|i'm not a robot|continue|confirm|accept|соглас)/i;
       var candidates = Array.prototype.slice.call(
