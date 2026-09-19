@@ -28,7 +28,7 @@ jobs:
         env:
           SUPABASE_URL: "https://wsrrqwvemfliwzsqlkvg.supabase.co"
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CAPMONSTER_KEY: ${{ secrets.CAPMONSTER_KEY }}
+          RUCAPTCHA_KEY: ${{ secrets.RUCAPTCHA_KEY }}
           TIMETABLE_GROUP_NAME: "128"
         run: node scripts/scrape-schedule.js
 
