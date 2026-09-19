@@ -24,8 +24,8 @@ const TARGET_URL =
   "https://sibstrin.ru/timetable/group/";
 const HOMEPAGE_URL = "https://sibstrin.ru/";
 const GROUP_NAME = process.env.TIMETABLE_GROUP_NAME || "128";
-const CAPMONSTER_KEY = process.env.CAPMONSTER_KEY || "";
-const CAPMONSTER_HOST = "https://api.capmonster.cloud";
+const RUCAPTCHA_KEY = process.env.RUCAPTCHA_KEY || "";
+const RUCAPTCHA_HOST = "https://rucaptcha.com";
 
 const TIMES = [
   "08:30-10:00", "10:15-11:45", "12:00-13:30", "14:10-15:35",
@@ -89,27 +89,16 @@ async function run() {
   console.log("Opening", TARGET_URL);
   await page.goto(TARGET_URL, { waitUntil: "networkidle2", timeout: 60000 });
 
-  // ---------- Real captcha solving via CapMonster Cloud (Yandex SmartCaptcha) ----------
-  function capmonsterPost(path, payload) {
+  // ---------- Real captcha solving via rucaptcha.com (Yandex SmartCaptcha) ----------
+  function rucaptchaRequest(url) {
     return new Promise(function (resolve, reject) {
-      var body = JSON.stringify(payload);
-      var req = require("https").request(
-        CAPMONSTER_HOST + path,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) }
-        },
-        function (res) {
-          var data = "";
-          res.on("data", function (chunk) { data += chunk; });
-          res.on("end", function () {
-            try { resolve(JSON.parse(data)); } catch (e) { reject(new Error("Bad response from CapMonster: " + data)); }
-          });
-        }
-      );
-      req.on("error", reject);
-      req.write(body);
-      req.end();
+      require("https").get(url, function (res) {
+        var body = "";
+        res.on("data", function (chunk) { body += chunk; });
+        res.on("end", function () {
+          try { resolve(JSON.parse(body)); } catch (e) { reject(new Error("Bad response from rucaptcha: " + body)); }
+        });
+      }).on("error", reject);
     });
   }
 
@@ -137,8 +126,8 @@ async function run() {
   }
 
   async function solveYandexCaptcha() {
-    if (!CAPMONSTER_KEY) {
-      console.log("No CAPMONSTER_KEY set - can't auto-solve a real captcha.");
+    if (!RUCAPTCHA_KEY) {
+      console.log("No RUCAPTCHA_KEY set - can't auto-solve a real captcha.");
       return false;
     }
     var sitekey = await findYandexSitekey();
@@ -146,38 +135,34 @@ async function run() {
       console.log("No Yandex SmartCaptcha sitekey found on the page - nothing to solve here.");
       return false;
     }
-    console.log("Found Yandex SmartCaptcha sitekey, sending to CapMonster Cloud...");
+    console.log("Found Yandex SmartCaptcha sitekey, sending to rucaptcha.com...");
 
-    var createRes = await capmonsterPost("/createTask", {
-      clientKey: CAPMONSTER_KEY,
-      task: {
-        type: "YandexSmartCaptchaTaskProxyless",
-        websiteURL: page.url(),
-        websiteKey: sitekey
-      }
-    });
-    if (createRes.errorId !== 0) {
-      console.log("CapMonster rejected the request: " + JSON.stringify(createRes));
+    var submitUrl = RUCAPTCHA_HOST + "/in.php?key=" + encodeURIComponent(RUCAPTCHA_KEY) +
+      "&method=yandex&sitekey=" + encodeURIComponent(sitekey) +
+      "&pageurl=" + encodeURIComponent(page.url()) + "&json=1";
+    var submitRes = await rucaptchaRequest(submitUrl);
+    if (submitRes.status !== 1) {
+      console.log("rucaptcha rejected the request: " + JSON.stringify(submitRes));
       return false;
     }
-    var taskId = createRes.taskId;
-    console.log("CapMonster task id " + taskId + " - waiting for it to be solved (usually 10-40s)...");
+    var taskId = submitRes.request;
+    console.log("rucaptcha task id " + taskId + " - waiting for a human worker to solve it (usually 10-40s)...");
 
     var token = null;
     for (var attempt = 0; attempt < 24 && !token; attempt++) {
       await new Promise(function (r) { setTimeout(r, 5000); });
-      var pollRes = await capmonsterPost("/getTaskResult", { clientKey: CAPMONSTER_KEY, taskId: taskId });
-      if (pollRes.errorId !== 0) {
-        console.log("CapMonster error while polling: " + JSON.stringify(pollRes));
+      var pollUrl = RUCAPTCHA_HOST + "/res.php?key=" + encodeURIComponent(RUCAPTCHA_KEY) +
+        "&action=get&id=" + taskId + "&json=1";
+      var pollRes = await rucaptchaRequest(pollUrl);
+      if (pollRes.status === 1) {
+        token = pollRes.request;
+      } else if (pollRes.request !== "CAPCHA_NOT_READY") {
+        console.log("rucaptcha error while polling: " + JSON.stringify(pollRes));
         return false;
       }
-      if (pollRes.status === "ready") {
-        token = pollRes.solution && pollRes.solution.token;
-      }
-      // status "processing" -> keep waiting
     }
     if (!token) {
-      console.log("Gave up waiting for CapMonster after 2 minutes.");
+      console.log("Gave up waiting for rucaptcha after 2 minutes.");
       return false;
     }
     console.log("Got a solved token, injecting it into the page...");
@@ -216,7 +201,7 @@ async function run() {
   // anything that looks like that, a few times, before giving up.
   async function tryDismissGate() {
     var solved = await solveYandexCaptcha();
-    if (solved) return "(captcha solved via CapMonster)";
+    if (solved) return "(captcha solved via rucaptcha)";
     return page.evaluate(function () {
       var keywordRe = /(не робот|я человек|подтвердить|продолжить|войти|verify|i am human|i'm not a robot|continue|confirm|accept|соглас)/i;
       var candidates = Array.prototype.slice.call(
