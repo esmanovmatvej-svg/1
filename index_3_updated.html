@@ -156,6 +156,14 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
 .dv-empty-msg{max-width:900px;margin:30px auto;text-align:center;color:var(--gray)}
 .dv-more{max-width:900px;margin:16px auto 0;text-align:center}
 .dv-more button{width:100%}
+.dv-nav{max-width:900px;margin:0 auto 12px;display:flex;align-items:center;gap:8px}
+.dv-nav .day-view-header{flex:1;margin:0}
+.dv-nav-btn{
+  width:40px;height:40px;flex-shrink:0;border-radius:var(--radius-pill);
+  background:var(--surface);backdrop-filter:blur(10px);border:1.5px solid var(--border);
+  color:var(--text-primary);font-size:1.3rem;line-height:1;cursor:pointer;
+}
+.dv-nav-btn:disabled{opacity:.3;cursor:default}
 
 /* literature (reading list) screen */
 .lit-header{max-width:700px;margin:0 auto 14px}
@@ -171,6 +179,28 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
 .lit-book:last-child{border-bottom:none}
 .lit-book:hover{background:var(--accent-soft)}
 .lit-open{color:var(--blue);font-size:.82rem;font-weight:600;flex-shrink:0;margin-left:10px}
+
+/* teachers directory */
+#teachersScreen .lit-search{margin-bottom:14px}
+.t-card{background:var(--surface);backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:10px;display:flex;gap:12px;align-items:center;cursor:pointer}
+.t-photo{width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-soft)}
+.t-photo-ph{width:52px;height:52px;border-radius:50%;flex-shrink:0;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--text-primary)}
+.t-name{font-weight:700}
+.t-subjects{font-size:.82rem;color:var(--text-secondary);margin-top:2px}
+.t-rating{margin-top:4px;font-size:.82rem;color:var(--warn);font-weight:600}
+.t-rating .cnt{color:var(--text-secondary);font-weight:400}
+
+.star-picker{display:flex;gap:4px;margin:8px 0 4px;flex-wrap:wrap}
+.star-picker button{
+  width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:transparent;
+  color:var(--text-secondary);font-size:.85rem;font-weight:700;cursor:pointer;
+}
+.star-picker button.on{background:var(--warn);border-color:var(--warn);color:var(--accent-contrast)}
+
+.review-row{background:rgba(255,255,255,.04);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px}
+.review-row .rr-rating{font-weight:700;color:var(--warn);font-size:.9rem}
+.review-row .rr-comment{font-size:.88rem;margin-top:3px}
+.review-row.mine{border:1.5px solid var(--accent)}
 .s-subj{font-weight:700;font-size:.78rem;color:var(--blue-dark);line-height:1.2;margin-bottom:1px;word-break:break-word;max-height:2.3em;overflow:hidden}
 .s-meta{font-size:.66rem;color:var(--gray);line-height:1.2;max-height:2.5em;overflow:hidden}
 .tag-dz{position:absolute;top:2px;right:2px;background:var(--success);color:#051F20;font-size:.55rem;font-weight:700;padding:1px 4px;border-radius:5px}
@@ -255,6 +285,8 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
     <button class="btn-danger btn-sm" id="clearAllBtn" style="display:none">Очистить всё</button>
     <button class="btn-outline btn-sm" id="viewToggleBtn">2 недели</button>
     <button class="btn-outline btn-sm" id="litBtn">📚 Литература</button>
+    <button class="btn-outline btn-sm" id="sessionsBtn">🗓️ Расписание сессий</button>
+    <button class="btn-outline btn-sm" id="teachersBtn">👨‍🏫 Преподаватели</button>
   </div>
 </header>
 <div id="errBox"></div>
@@ -262,6 +294,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
   <div class="weeks" id="weeks"></div>
   <div id="area"></div>
   <div id="litScreen" style="display:none"></div>
+  <div id="teachersScreen" style="display:none"></div>
   <div id="ownerPanel" style="display:none"></div>
 </main>
 
@@ -342,6 +375,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
   var slotIdByKey = {}; // "w:d:t:p" -> schedule_slots.id
   var homeworkIdByKey = {}; // "w:d:t:p" -> homework.id (once one exists)
   var viewMode = localStorage.getItem("domashka_view_v1") || "day"; // "day" | "grid"
+  var dayViewAbsIndex = null; // 0..11 across the 2-week span (week*6+day); null = not yet resolved
   var TIMES=["08:30–10:00","10:15–11:45","12:00–13:30","14:10–15:35","15:45–17:10","17:20–18:45","18:50–20:15","20:20–21:50"];
   var DAYS=["Пн","Вт","Ср","Чт","Пт","Сб"];
 
@@ -620,15 +654,25 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
     try{
       var sess=await sb.auth.getSession();
       var session=sess.data.session;
-      if(!session){ if(showFeedback) toast("Сначала войди через страницу входа"); return; }
+      if(!session){
+        console.warn("[sync] no Supabase session - user is not logged in");
+        if(showFeedback) toast("Сначала войди через страницу входа");
+        return;
+      }
       myUserId=session.user.id;
 
       if(!myGroupId){
         var prof=await sb.from("profiles").select("group_id, full_name, is_owner").eq("id", session.user.id).maybeSingle();
-        if(!prof.data || !prof.data.group_id){ if(showFeedback) toast("Профиль ещё не привязан к группе"); return; }
+        if(prof.error){ console.error("[sync] profile fetch error:", prof.error); throw new Error("профиль: "+prof.error.message); }
+        if(!prof.data || !prof.data.group_id){
+          console.warn("[sync] profile has no group_id - was join_by_roster ever run for this user?", prof.data);
+          toast("Профиль ещё не привязан к группе");
+          return;
+        }
         myGroupId=prof.data.group_id;
         myIsOwner=!!prof.data.is_owner;
         if(!user.name && prof.data.full_name){ user.name=prof.data.full_name; }
+        console.log("[sync] resolved group_id:", myGroupId, "is_owner:", myIsOwner);
       }
       await sb.from("profiles").update({last_seen_at:new Date().toISOString()}).eq("id", session.user.id);
 
@@ -637,7 +681,12 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
       (teachersRes.data||[]).forEach(function(t){ teacherNameById[t.id]=t.full_name; });
 
       var slotsRes=await sb.from("schedule_slots").select("*").eq("group_id", myGroupId);
-      if(slotsRes.error) throw new Error(slotsRes.error.message);
+      if(slotsRes.error) throw new Error("schedule_slots: "+slotsRes.error.message);
+      console.log("[sync] schedule_slots rows for my group:", (slotsRes.data||[]).length);
+      if(!slotsRes.data || !slotsRes.data.length){
+        console.warn("[sync] zero schedule rows for group_id", myGroupId, "- either the scraper hasn't written this group yet, or group_id mismatch");
+        toast("В базе пока нет расписания для твоей группы");
+      }
 
       slotIdByKey={};
       (slotsRes.data||[]).forEach(function(r){
@@ -650,7 +699,8 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
       render();
       if(showFeedback) toast("Расписание обновлено");
     }catch(e){
-      if(showFeedback) toast("Не удалось обновить: "+e.message);
+      console.error("[sync] failed:", e);
+      toast("Не удалось обновить: "+e.message);
     }
   }
 
@@ -792,16 +842,27 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
   function drawDayView(){
     var html="";
     var info=getTodayInfo();
-    var display=resolveDisplayDay();
-    var activeWeek=display.week;
-    var showDay=display.day;
-    var isLiveToday=!display.isWeekend && activeWeek===currentWeekIndex(info) && showDay===info.day;
+    if(dayViewAbsIndex===null){
+      var display0=resolveDisplayDay();
+      dayViewAbsIndex=(display0.week>=0 && display0.day>=0) ? (display0.week*6+display0.day) : 0;
+    }
+    var activeWeek=Math.floor(dayViewAbsIndex/6);
+    var showDay=dayViewAbsIndex%6;
+    var liveWeek=currentWeekIndex(info);
+    var jsDay=new Date().getDay();
+    var isWeekendNow=(jsDay===0 || jsDay===6);
+    var isLiveToday=!isWeekendNow && activeWeek===liveWeek && showDay===info.day;
+    var showWeekendBanner=false;
+    if(isWeekendNow){
+      var redirectTarget=resolveDisplayDay();
+      showWeekendBanner=(redirectTarget.week===activeWeek && redirectTarget.day===showDay);
+    }
     if(isLiveToday && info.break && info.next>=0 && !hasContentFrom(activeWeek, info.day, info.next)){
       info.break=false; info.next=-1;
     }
     html+='<div id="currentStatus" class="current-status" style="display:none"></div>';
 
-    if(activeWeek<0 || showDay<0){
+    if(activeWeek<0 || activeWeek>1 || !data.weeks[activeWeek] || !data.weeks[activeWeek].days[showDay]){
       html+='<div class="day-view-header"><div class="dv-day">Расписание пока пустое</div>'+
             '<div class="dv-date">Загляни на «2 недели», как только появятся данные</div></div>';
       document.getElementById("area").innerHTML=html;
@@ -809,9 +870,13 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
     }
 
     var day=data.weeks[activeWeek].days[showDay];
+    html+='<div class="dv-nav">';
+    html+='<button id="dvPrev" class="dv-nav-btn"'+(dayViewAbsIndex<=0?' disabled':'')+'>‹</button>';
     html+='<div class="day-view-header"><div class="dv-day">'+day.name+'</div>';
-    if(display.isWeekend) html+='<div class="dv-date" style="color:var(--today-dark);font-weight:600">Сегодня выходной — показываю ближайший понедельник</div>';
+    if(showWeekendBanner) html+='<div class="dv-date" style="color:var(--today-dark);font-weight:600">Сегодня выходной — показываю ближайший понедельник</div>';
     html+='<div class="dv-date">'+(day.date?esc(day.date):'')+'</div></div>';
+    html+='<button id="dvNext" class="dv-nav-btn"'+(dayViewAbsIndex>=11?' disabled':'')+'>›</button>';
+    html+='</div>';
 
     html+='<div class="dv-list">';
     var shown=0;
@@ -853,6 +918,11 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
 
     var dvMore=document.getElementById("dvMoreBtn");
     if(dvMore) dvMore.onclick=function(){ viewMode="grid"; localStorage.setItem("domashka_view_v1","grid"); render(); };
+
+    var dvPrev=document.getElementById("dvPrev");
+    if(dvPrev) dvPrev.onclick=function(){ if(dayViewAbsIndex>0){ dayViewAbsIndex--; render(); } };
+    var dvNext=document.getElementById("dvNext");
+    if(dvNext) dvNext.onclick=function(){ if(dayViewAbsIndex<11){ dayViewAbsIndex++; render(); } };
 
     var cards=document.getElementById("area").querySelectorAll(".dv-card");
     for(var c=0;c<cards.length;c++){
@@ -1052,6 +1122,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
   // ---------- Literature (reading list) ----------
   var literatureBooks=[];
   var showingLit=false;
+  var showingTeachers=false;
 
   async function loadAndDrawLiterature(){
     var el=document.getElementById("litScreen");
@@ -1154,6 +1225,146 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
     await loadAndDrawLiterature();
   }
 
+  // ---------- Teachers directory (photos, subjects taught, 1-10 reviews) ----------
+  var teacherDirectory=[]; // [{id,full_name,photo_url,subjects:[...],avg,count,myReview}]
+
+  async function loadAndDrawTeachers(){
+    var el=document.getElementById("teachersScreen");
+    el.innerHTML='<div class="dv-empty-msg">Загрузка...</div>';
+    if(!sb || !myGroupId){ el.innerHTML='<div class="dv-empty-msg">Supabase не подключён</div>'; return; }
+
+    var teachersRes=await sb.from("teachers").select("id,full_name,photo_url").eq("group_id",myGroupId);
+    if(teachersRes.error){ el.innerHTML='<div class="dv-empty-msg">Ошибка: '+esc(teachersRes.error.message)+'</div>'; return; }
+    var rows=teachersRes.data||[];
+    if(!rows.length){ el.innerHTML='<div class="lit-header"><h2>👨‍🏫 Преподаватели</h2></div><div class="dv-empty-msg">Пока пусто — появятся, как только подтянется расписание</div>'; return; }
+
+    var teacherIds=rows.map(function(t){return t.id;});
+    var slotsRes=await sb.from("schedule_slots").select("teacher_id,subject").eq("group_id",myGroupId);
+    var subjByTeacher={};
+    (slotsRes.data||[]).forEach(function(s){
+      if(!s.teacher_id || !s.subject) return;
+      var set=subjByTeacher[s.teacher_id]=subjByTeacher[s.teacher_id]||{};
+      set[s.subject]=true;
+    });
+
+    var reviewsRes=await sb.from("teacher_reviews").select("teacher_id,student_id,rating,comment").in("teacher_id",teacherIds);
+    var reviewsByTeacher={};
+    (reviewsRes.data||[]).forEach(function(r){ (reviewsByTeacher[r.teacher_id]=reviewsByTeacher[r.teacher_id]||[]).push(r); });
+
+    teacherDirectory=rows.map(function(t){
+      var revs=reviewsByTeacher[t.id]||[];
+      var avg=revs.length ? (revs.reduce(function(s,r){return s+r.rating;},0)/revs.length) : null;
+      var mine=myUserId ? revs.find(function(r){ return r.student_id===myUserId; }) : null;
+      return {
+        id:t.id, full_name:t.full_name, photo_url:t.photo_url,
+        subjects:Object.keys(subjByTeacher[t.id]||{}),
+        avg:avg, count:revs.length, reviews:revs, myReview:mine||null
+      };
+    });
+    teacherDirectory.sort(function(a,b){ return a.full_name.localeCompare(b.full_name,"ru"); });
+
+    renderTeachersList();
+  }
+
+  function renderTeachersList(){
+    var el=document.getElementById("teachersScreen");
+    var h='<div class="lit-header"><h2>👨‍🏫 Преподаватели</h2><input id="teacherSearch" class="lit-search" placeholder="Поиск по имени или предмету..."></div>';
+    h+='<div id="teacherListBody"></div>';
+    el.innerHTML=h;
+    renderTeacherCards("");
+    document.getElementById("teacherSearch").oninput=function(){ renderTeacherCards(this.value.trim().toLowerCase()); };
+  }
+
+  function renderTeacherCards(query){
+    var body=document.getElementById("teacherListBody");
+    var filtered=teacherDirectory.filter(function(t){
+      if(!query) return true;
+      return t.full_name.toLowerCase().indexOf(query)!==-1 || t.subjects.some(function(s){return s.toLowerCase().indexOf(query)!==-1;});
+    });
+    if(!filtered.length){ body.innerHTML='<div class="dv-empty-msg">Ничего не найдено</div>'; return; }
+    var h="";
+    filtered.forEach(function(t){
+      var initials=t.full_name.split(/\s+/).map(function(w){return w[0];}).slice(0,2).join("").toUpperCase();
+      h+='<div class="t-card" data-id="'+t.id+'">';
+      h+=t.photo_url ? '<img class="t-photo" src="'+esc(t.photo_url)+'">' : '<div class="t-photo-ph">'+esc(initials)+'</div>';
+      h+='<div><div class="t-name">'+esc(t.full_name)+'</div>';
+      h+='<div class="t-subjects">'+(t.subjects.length?esc(t.subjects.join(", ")):"Предметы не найдены")+'</div>';
+      h+='<div class="t-rating">'+(t.avg!==null?('★ '+t.avg.toFixed(1)+' <span class="cnt">('+t.count+')</span>'):'<span class="cnt">Пока нет отзывов</span>')+'</div>';
+      h+='</div></div>';
+    });
+    body.innerHTML=h;
+    var cards=body.querySelectorAll(".t-card");
+    for(var i=0;i<cards.length;i++){
+      cards[i].onclick=function(){ openTeacherDetail(this.getAttribute("data-id")); };
+    }
+  }
+
+  function openTeacherDetail(teacherId){
+    var t=teacherDirectory.find(function(x){ return x.id===teacherId; });
+    if(!t) return;
+    document.getElementById("mTitle").textContent=t.full_name;
+    var h="";
+    if(t.photo_url) h+='<img class="t-photo" style="width:80px;height:80px;margin-bottom:10px" src="'+esc(t.photo_url)+'">';
+    h+='<div class="info"><div class="l">Предметы</div><div class="v">'+(t.subjects.length?esc(t.subjects.join(", ")):"—")+'</div></div>';
+    h+='<div class="info"><div class="l">Средняя оценка</div><div class="v">'+(t.avg!==null?('★ '+t.avg.toFixed(1)+' из '+t.count):'Пока нет отзывов')+'</div></div>';
+
+    h+='<h4 style="margin:16px 0 8px">'+(myUserId?'Твоя оценка':'Оценка')+'</h4>';
+    if(myUserId){
+      h+='<div class="star-picker" id="starPicker"></div>';
+      h+='<div class="fg"><textarea id="reviewComment" placeholder="Краткий отзыв (необязательно)">'+esc(t.myReview?t.myReview.comment||"":"")+'</textarea></div>';
+      h+='<button class="btn-blue" id="submitReviewBtn" style="margin-top:8px;width:100%">'+(t.myReview?'Обновить отзыв':'Оставить отзыв')+'</button>';
+    } else {
+      h+='<p style="color:var(--text-secondary);font-size:.85rem">Войди, чтобы оставить отзыв</p>';
+    }
+
+    if(t.reviews.length){
+      h+='<h4 style="margin:16px 0 8px">Отзывы группы ('+t.reviews.length+')</h4>';
+      t.reviews.forEach(function(r){
+        h+='<div class="review-row'+(t.myReview&&r.student_id===t.myReview.student_id?' mine':'')+'"><div class="rr-rating">★ '+r.rating+'/10</div>'+
+           (r.comment?'<div class="rr-comment">'+esc(r.comment)+'</div>':'')+'</div>';
+      });
+    }
+
+    document.getElementById("mBody").innerHTML=h;
+    document.getElementById("ov1").classList.add("open");
+
+    if(myUserId){
+      var selected=t.myReview?t.myReview.rating:0;
+      var picker=document.getElementById("starPicker");
+      function drawPicker(){
+        var ph="";
+        for(var i=1;i<=10;i++) ph+='<button type="button" class="'+(i<=selected?"on":"")+'" data-n="'+i+'">'+i+'</button>';
+        picker.innerHTML=ph;
+        var btns=picker.querySelectorAll("button");
+        for(var j=0;j<btns.length;j++){
+          btns[j].onclick=function(){ selected=+this.getAttribute("data-n"); drawPicker(); };
+        }
+      }
+      drawPicker();
+      document.getElementById("submitReviewBtn").onclick=function(){
+        if(!selected){ toast("Выбери оценку от 1 до 10"); return; }
+        submitReview(t, selected, document.getElementById("reviewComment").value.trim());
+      };
+    }
+  }
+
+  async function submitReview(t, rating, comment){
+    if(!sb || !myUserId) return;
+    var btn=document.getElementById("submitReviewBtn");
+    btn.disabled=true; btn.textContent="Сохраняем...";
+    try{
+      var res=await sb.from("teacher_reviews")
+        .upsert({teacher_id:t.id, student_id:myUserId, rating:rating, comment:comment||null}, {onConflict:"teacher_id,student_id"});
+      if(res.error){ toast("Ошибка: "+res.error.message); return; }
+      toast("Отзыв сохранён");
+      document.getElementById("ov1").classList.remove("open");
+      await loadAndDrawTeachers();
+      if(showingTeachers) renderTeachersList();
+    } finally {
+      if(btn){ btn.disabled=false; btn.textContent="Оставить отзыв"; }
+    }
+  }
+
   async function loadStudentsPanel(){
     var body=document.getElementById("studentsPanelBody");
     if(!body) return;
@@ -1215,7 +1426,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
     var time=TIMES[cur.t];
     document.getElementById("mTitle").textContent=part.subject||(myIsOwner?"Новая пара":"Пара");
     var canEditSchedule=myIsOwner;
-    var canEditHomework=!!myUserId;
+    var canEditHomework=myIsOwner; // students are view-only until a teacher role exists
     var h="";
     if(canEditSchedule){
       h+='<div class="split-toggle">';
@@ -1250,8 +1461,8 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
       h+='</div>';
 
       if(canEditHomework){
-        // Any signed-in group member can add/fix the homework text - this is
-        // the crowdsourced "someone went to the pair and wrote it down" flow.
+        // Kept for the upcoming teacher role - not reachable right now since
+        // canEditHomework==canEditSchedule==myIsOwner until teachers exist.
         h+='<div class="fg"><label>Домашнее задание</label><textarea id="f5hw" placeholder="Текст задания...">'+esc(part.hw)+'</textarea></div>';
         h+='<div class="fg"><label>Сдать до (ДД.ММ.ГГГГ)</label><input id="fDueHw" value="'+esc(part.due)+'" placeholder="15.09.2026"></div>';
         h+='<div class="topics"><h4>Темы (можно забронировать)</h4><div id="tl"></div>';
@@ -1670,7 +1881,9 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
 
   document.getElementById("syncBtn").onclick=function(){ syncFromSupabase(true); };
   document.getElementById("viewToggleBtn").onclick=function(){
-    viewMode=(viewMode==="day")?"grid":"day";
+    var goingToDay=(viewMode!=="day");
+    viewMode=goingToDay?"day":"grid";
+    if(goingToDay) dayViewAbsIndex=null; // jump back to today, not wherever we last browsed
     localStorage.setItem("domashka_view_v1",viewMode);
     render();
   };
@@ -1681,6 +1894,17 @@ td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);bo
     document.getElementById("viewToggleBtn").style.display=showingLit?"none":"inline-block";
     this.textContent=showingLit?"← Расписание":"📚 Литература";
     if(showingLit) loadAndDrawLiterature();
+  };
+  document.getElementById("sessionsBtn").onclick=function(){
+    toast("Расписание сессий скоро появится");
+  };
+  document.getElementById("teachersBtn").onclick=function(){
+    showingTeachers=!showingTeachers;
+    document.getElementById("area").style.display=showingTeachers?"none":"";
+    document.getElementById("teachersScreen").style.display=showingTeachers?"block":"none";
+    document.getElementById("viewToggleBtn").style.display=showingTeachers?"none":"inline-block";
+    this.textContent=showingTeachers?"← Расписание":"👨‍🏫 Преподаватели";
+    if(showingTeachers) loadAndDrawTeachers();
   };
 
   load(); render();
