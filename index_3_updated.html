@@ -4,70 +4,73 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Домашка</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#051F20">
+<link rel="icon" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Домашка">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
 :root {
-  --blue:#3B82C4; --blue-dark:#1E5A9A; --blue-light:#E8F3FC;
-  --brown:#C9A88A; --brown-dark:#8B6F47;
-  --cream:#F8FBFE; --white:#fff; --black:#1A1A1A; --gray:#64748B;
-  --success:#16A34A; --warn:#EAB308; --danger:#DC2626;
-  --today:#E08A3C; --today-dark:#B96C24;
-  --shadow:0 4px 14px rgba(0,0,0,.07);
+  /* Домашка design system — client theme (см. артефакт "Домашка — Design System") */
+  --bg:#051F20; --bg-elevated:#0B2B26;
+  --surface:rgba(11,43,38,.72); --surface-solid:#0B2B26;
+  --border:rgba(35,83,71,.6);
+  --text-primary:#DAF1DE; --text-secondary:#8EB69B;
+  --accent:#8EB69B; --accent-hover:#79A88A; --accent-contrast:#051F20;
+  --accent-soft:rgba(142,182,155,.16);
+  --success:#9FD8B3; --warn:#E3C077; --danger:#D98789;
+  --owner-accent:#26784B;
+  --scrim-top:rgba(5,31,32,.9); --scrim-bottom:rgba(5,31,32,.95);
+  --today:#E3C077; --today-dark:#C9922B;
+  --shadow:0 10px 28px rgba(0,0,0,.35);
+  --radius-sm:8px; --radius-md:16px; --radius-lg:26px; --radius-pill:999px;
+  --font-display:"Unbounded", system-ui, sans-serif;
+  --font-body:"Golos Text", system-ui, sans-serif;
+
+  /* старые имена оставлены как алиасы — их используют почти все правила ниже,
+     переопределять сотни строк не пришлось: один раз задать здесь. */
+  --blue:var(--accent); --blue-dark:var(--accent-hover); --blue-light:var(--accent-soft);
+  --brown:var(--owner-accent); --brown-dark:#1D5C39;
+  --cream:var(--bg-elevated); --white:var(--surface-solid); --black:var(--text-primary); --gray:var(--text-secondary);
 }
-/* Темы режима доступа: обычный / админ / владелец */
-body.theme-admin{
-  --blue:#8B6F47; --blue-dark:#6F5638; --blue-light:#F3EBDD;
-  --brown:#B79A76; --brown-dark:#765936;
-  --cream:#FBF8F2;
-}
-body.theme-owner{
-  --blue:#8B3A3A; --blue-dark:#642727; --blue-light:#F6E8E6;
-  --brown:#A77A68; --brown-dark:#5C2A2A;
-  --cream:#FCF7F5;
-}
-body.theme-admin .admin-bar{background:linear-gradient(90deg,#6F5638,#9B7A4A)}
-body.theme-owner .owner-bar{background:linear-gradient(90deg,#5C2A2A,#8B3A3A)}
-body.theme-admin header{border-bottom-color:var(--brown-dark)}
-body.theme-owner header{border-bottom-color:var(--brown-dark)}
-body.theme-admin .btn-outline,body.theme-owner .btn-outline{border-color:var(--blue);color:var(--blue-dark)}
-body.theme-admin .week-btn.on,body.theme-owner .week-btn.on{background:var(--blue);border-color:var(--blue-dark)}
+body.theme-owner .owner-bar{background:linear-gradient(90deg,var(--owner-accent),#1D5C39)}
+</style>
+<style>
 body.theme-admin th,body.theme-owner th{background:var(--blue)}
 body.theme-admin th.left,body.theme-owner th.left{background:var(--brown-dark)}
 body.theme-admin .mod-h,body.theme-owner .mod-h{background:var(--blue-dark)}
 *{box-sizing:border-box;margin:0;padding:0}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  color:var(--black);min-height:100vh;line-height:1.4;
-  background-color:#E8F4FC;
+  font-family:var(--font-body);
+  color:var(--text-primary);min-height:100vh;line-height:1.4;
+  background-color:var(--bg);
   background-image:
-    /* soft clouds */
-    radial-gradient(ellipse 120px 70px at 10% 15%, rgba(255,255,255,0.7) 0%, transparent 70%),
-    radial-gradient(ellipse 160px 90px at 25% 25%, rgba(255,255,255,0.55) 0%, transparent 70%),
-    radial-gradient(ellipse 100px 60px at 70% 12%, rgba(255,255,255,0.65) 0%, transparent 70%),
-    radial-gradient(ellipse 140px 80px at 85% 30%, rgba(255,255,255,0.5) 0%, transparent 70%),
-    radial-gradient(ellipse 110px 65px at 50% 8%, rgba(255,255,255,0.6) 0%, transparent 70%),
-    radial-gradient(ellipse 90px 50px at 15% 60%, rgba(255,255,255,0.4) 0%, transparent 70%),
-    radial-gradient(ellipse 130px 70px at 80% 70%, rgba(255,255,255,0.45) 0%, transparent 70%),
-    /* soft blue waves at bottom */
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320' preserveAspectRatio='none'%3E%3Cpath fill='%23B8D4F0' fill-opacity='0.45' d='M0,192L48,176C96,160,192,128,288,133.3C384,139,480,181,576,186.7C672,192,768,160,864,144C960,128,1056,128,1152,149.3C1248,171,1344,213,1392,234.7L1440,256L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3Cpath fill='%239EC5E8' fill-opacity='0.35' d='M0,256L48,240C96,224,192,192,288,181.3C384,171,480,181,576,192C672,203,768,213,864,197.3C960,181,1056,139,1152,133.3C1248,128,1344,160,1392,176L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
-  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, center bottom;
-  background-size: auto, auto, auto, auto, auto, auto, auto, 100% 220px;
-  background-attachment: fixed;
+    linear-gradient(to bottom, var(--scrim-top) 0%, rgba(5,31,32,.55) 32%, rgba(5,31,32,.55) 68%, var(--scrim-bottom) 100%),
+    url("assets/mountain-bg.jpg");
+  background-repeat: no-repeat, no-repeat;
+  background-position: center top, center 30%;
+  background-size: 100% 100%, cover;
+  background-attachment: fixed, fixed;
 }
 header{
-  background:rgba(255,255,255,.93);backdrop-filter:blur(10px);
-  border-bottom:2px solid var(--brown);padding:11px 14px;
+  background:rgba(5,31,32,.75);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);padding:11px 14px;
   position:sticky;top:0;z-index:50;
   display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;
   box-shadow:var(--shadow);
 }
-.logo{font-size:1.2rem;font-weight:700;color:var(--blue-dark);display:flex;align-items:center;gap:7px}
-.logo span{background:var(--blue);color:#fff;font-size:.68rem;padding:2px 8px;border-radius:20px}
+.logo{font-size:1.2rem;font-weight:700;font-family:var(--font-display);color:var(--text-primary);display:flex;align-items:center;gap:7px}
+.logo span{background:var(--accent);color:var(--accent-contrast);font-size:.68rem;padding:2px 8px;border-radius:20px}
 .header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .user-chip{
   display:flex;align-items:center;gap:7px;
-  background:var(--blue-light);border:1px solid #c5dcf0;
+  background:var(--accent-soft);border:1px solid rgba(142,182,155,.3);
   padding:4px 10px 4px 5px;border-radius:24px;font-size:.88rem;font-weight:500;
 }
 .avatar{
@@ -78,121 +81,158 @@ header{
 .avatar img{width:100%;height:100%;object-fit:cover}
 .edit-btn{background:none;border:none;color:var(--blue);font-size:.75rem;font-weight:600;cursor:pointer}
 button{cursor:pointer;border:none;border-radius:8px;font-size:.84rem;font-weight:600;padding:7px 13px;font-family:inherit}
-.btn-blue{background:var(--blue);color:#fff}
-.btn-outline{background:#fff;border:1.5px solid var(--blue);color:var(--blue)}
-.btn-danger{background:var(--danger);color:#fff}
+.btn-blue{background:var(--accent);color:var(--accent-contrast);font-weight:600}
+.btn-outline{background:transparent;border:1.5px solid var(--accent);color:var(--accent)}
+.btn-danger{background:var(--danger);color:var(--accent-contrast)}
 .btn-sm{padding:5px 10px;font-size:.78rem}
-.admin-bar,.owner-bar{
+.owner-bar{
   color:#fff;text-align:center;padding:6px;font-size:.8rem;font-weight:600;display:none;
 }
-.admin-bar{background:linear-gradient(90deg,var(--brown-dark),#a67c2a)}
-.owner-bar{background:linear-gradient(90deg,#1e3a5f,#2c5282)}
-.admin-bar.on,.owner-bar.on{display:block}
+.owner-bar.on{display:block}
 main{max-width:1100px;margin:0 auto;padding:14px 10px 50px}
 .weeks{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .week-btn{
-  background:#fff;border:2px solid #e0d0bc;color:var(--gray);
-  padding:8px 18px;border-radius:22px;font-weight:600;box-shadow:var(--shadow);
+  background:var(--surface);backdrop-filter:blur(10px);border:1.5px solid var(--border);color:var(--text-secondary);
+  padding:8px 18px;border-radius:var(--radius-pill);font-weight:600;box-shadow:var(--shadow);
 }
-.week-btn.on{background:var(--blue);border-color:var(--blue-dark);color:#fff}
-.week-title{font-size:1.15rem;font-weight:700;color:var(--blue-dark);margin-bottom:10px}
+.week-btn.on{background:var(--accent);border-color:var(--accent-hover);color:var(--accent-contrast)}
+.week-title{font-size:1.15rem;font-weight:700;font-family:var(--font-display);color:var(--text-primary);margin-bottom:10px}
 .week-title input{font-size:1rem;font-weight:700;border:1.5px solid var(--brown);border-radius:6px;padding:4px 8px;width:160px}
-.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1.5px solid var(--brown);border-radius:12px;background:#fff;box-shadow:var(--shadow)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);backdrop-filter:blur(12px);box-shadow:var(--shadow)}
 table{width:100%;border-collapse:collapse;min-width:720px}
-th{background:var(--blue);color:#fff;font-size:.72rem;font-weight:600;padding:10px 2px;text-align:center;white-space:nowrap;border-right:1px solid rgba(255,255,255,.2)}
+th{background:var(--surface-solid);color:var(--accent);font-size:.72rem;font-weight:600;padding:10px 2px;text-align:center;white-space:nowrap;border-right:1px solid var(--border)}
 th.left{background:var(--brown-dark);min-width:68px;width:68px}
-td{border:1px solid #e8dccf;vertical-align:top;padding:0}
-.day{background:#F3E9DB;text-align:center;padding:8px 2px;font-weight:700;font-size:.85rem;min-width:68px;width:68px}
+td{border:1px solid var(--border);vertical-align:top;padding:0}
+.day{background:var(--surface-solid);text-align:center;padding:8px 2px;font-weight:700;font-size:.85rem;min-width:68px;width:68px;color:var(--text-primary)}
 .day .d-name{display:block}
 .day .d-date{display:block;font-weight:400;font-size:.68rem;color:var(--gray);margin-top:2px}
-.day input{width:60px;font-size:.68rem;padding:2px;border:1px solid #ccc;border-radius:4px;margin-top:3px;text-align:center}
+.day input{width:60px;font-size:.68rem;padding:2px;border:1px solid var(--border);border-radius:4px;margin-top:3px;text-align:center;background:var(--bg-elevated);color:var(--text-primary)}
 .slot{
-  height:92px;min-width:100px;padding:5px 5px;cursor:pointer;position:relative;background:#fff;
+  height:92px;min-width:100px;padding:5px 5px;cursor:pointer;position:relative;background:transparent;
   transition:background .12s;
 }
 .slot:active{background:var(--blue-light)}
-.slot.has{background:#F7FBFF}
-.slot.done-green{background:#ECFDF5 !important;border-left:3px solid var(--success)}
-.slot.due-yellow{background:#FEFCE8 !important;border-left:3px solid var(--warn)}
-.slot.due-red{background:#FEF2F2 !important;border-left:3px solid var(--danger)}
+.slot.has{background:rgba(142,182,155,.07)}
+.slot.done-green{background:rgba(159,216,179,.14) !important;border-left:3px solid var(--success)}
+.slot.due-yellow{background:rgba(227,192,119,.14) !important;border-left:3px solid var(--warn)}
+.slot.due-red{background:rgba(217,135,137,.14) !important;border-left:3px solid var(--danger)}
 /* today / current-lesson highlight */
 th.current-slot{background:var(--today) !important}
-td.day.current-day{background:#FBEAD4;border-left:3px solid var(--today)}
+td.day.current-day{background:rgba(224,138,60,.14);border-left:3px solid var(--today)}
 td.day.current-day .d-date{color:var(--today-dark);font-weight:700}
-td.slot.current-day,td.slot.has.current-day{background:#FFF8EF}
-td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inset 0 0 0 2px var(--today)}
-.subslot.current-day{background:#FFF8EF}
-.subslot.current-slot{background:#FCE7CB;box-shadow:inset 0 0 0 2px var(--today)}
+td.slot.current-day,td.slot.has.current-day{background:rgba(224,138,60,.10)}
+td.slot.current-slot,td.slot.has.current-slot{background:rgba(224,138,60,.20);box-shadow:inset 0 0 0 2px var(--today)}
+.subslot.current-day{background:rgba(224,138,60,.10)}
+.subslot.current-slot{background:rgba(224,138,60,.20);box-shadow:inset 0 0 0 2px var(--today)}
 .current-status{
   max-width:1100px;margin:0 auto 12px;padding:11px 16px;border-radius:14px;
-  background:linear-gradient(90deg,var(--today),#EFA85F);color:#fff;
+  background:linear-gradient(90deg,var(--today),#EFA85F);color:#051F20;
   display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
   box-shadow:var(--shadow);font-size:.88rem;
 }
 .current-status.break-status{background:linear-gradient(90deg,var(--blue),var(--blue-dark))}
 .current-status .status-time{font-size:.78rem;opacity:.9;white-space:nowrap}
 .current-status .current-next{font-weight:600;margin-left:4px}
+
+/* day view (NetSchool-style "today only" agenda) */
+.day-view-header{max-width:900px;margin:0 auto 12px;text-align:center}
+.day-view-header .dv-day{font-size:1.6rem;font-weight:600;font-family:var(--font-display);color:var(--text-primary)}
+.day-view-header .dv-date{color:var(--gray);font-size:.88rem;margin-top:2px}
+.dv-list{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding:0 4px}
+.dv-card{
+  background:var(--surface);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 14px;box-shadow:var(--shadow);
+  display:flex;gap:12px;align-items:flex-start;cursor:pointer;border-left:4px solid var(--blue-light);
+}
+.dv-card.has{border-left-color:var(--blue)}
+.dv-card.done-green{background:rgba(159,216,179,.14);border-left-color:var(--success)}
+.dv-card.due-yellow{background:rgba(227,192,119,.14);border-left-color:var(--warn)}
+.dv-card.due-red{background:rgba(217,135,137,.14);border-left-color:var(--danger)}
+.dv-card.current-slot{box-shadow:0 0 0 2px var(--today),var(--shadow)}
+.dv-time{flex-shrink:0;width:64px;font-size:.82rem;font-weight:700;color:var(--blue-dark);line-height:1.3}
+.dv-body{flex:1;min-width:0}
+.dv-subj{font-weight:700;font-size:.98rem}
+.dv-subj.empty{color:var(--text-secondary);font-weight:500}
+.dv-meta{font-size:.82rem;color:var(--gray);margin-top:2px}
+.dv-empty-msg{max-width:900px;margin:30px auto;text-align:center;color:var(--gray)}
+.dv-more{max-width:900px;margin:16px auto 0;text-align:center}
+.dv-more button{width:100%}
+
+/* literature (reading list) screen */
+.lit-header{max-width:700px;margin:0 auto 14px}
+.lit-header h2{font-size:1.15rem;color:var(--blue-dark);margin-bottom:10px}
+.lit-search{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.95rem;background:var(--bg-elevated);color:var(--text-primary)}
+.lit-search:focus{outline:none;border-color:var(--blue)}
+#litList{max-width:700px;margin:0 auto}
+.lit-subject{background:var(--surface);backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow);margin-bottom:8px;overflow:hidden}
+.lit-subject-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;cursor:pointer;font-weight:700;color:var(--blue-dark)}
+.lit-count{background:var(--blue-light);color:var(--blue-dark);border-radius:10px;padding:1px 9px;font-size:.78rem;font-weight:600}
+.lit-books{border-top:1px solid var(--border)}
+.lit-book{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;font-size:.9rem;cursor:pointer;border-bottom:1px solid var(--border)}
+.lit-book:last-child{border-bottom:none}
+.lit-book:hover{background:var(--accent-soft)}
+.lit-open{color:var(--blue);font-size:.82rem;font-weight:600;flex-shrink:0;margin-left:10px}
 .s-subj{font-weight:700;font-size:.78rem;color:var(--blue-dark);line-height:1.2;margin-bottom:1px;word-break:break-word;max-height:2.3em;overflow:hidden}
 .s-meta{font-size:.66rem;color:var(--gray);line-height:1.2;max-height:2.5em;overflow:hidden}
-.tag-dz{position:absolute;top:2px;right:2px;background:var(--success);color:#fff;font-size:.55rem;font-weight:700;padding:1px 4px;border-radius:5px}
+.tag-dz{position:absolute;top:2px;right:2px;background:var(--success);color:#051F20;font-size:.55rem;font-weight:700;padding:1px 4px;border-radius:5px}
 .tag-t{position:absolute;bottom:2px;right:2px;background:var(--brown);color:var(--black);font-size:.55rem;font-weight:700;padding:1px 4px;border-radius:5px}
 /* split cell */
 .slot.split{display:flex;padding:0;height:92px}
 .subslot{
-  flex:1;padding:5px 4px;border-right:1px dashed #d4c4b0;position:relative;overflow:hidden;
+  flex:1;padding:5px 4px;border-right:1px dashed var(--border);position:relative;overflow:hidden;
 }
 .subslot:last-child{border-right:none}
-.subslot.done-green{background:#ECFDF5}
-.subslot.due-yellow{background:#FEFCE8}
-.subslot.due-red{background:#FEF2F2}
+.subslot.done-green{background:rgba(159,216,179,.14)}
+.subslot.due-yellow{background:rgba(227,192,119,.14)}
+.subslot.due-red{background:rgba(217,135,137,.14)}
 .hint{text-align:center;padding:18px 12px;color:var(--gray);font-size:.9rem}
 /* modals */
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.42);display:none;align-items:flex-end;justify-content:center;z-index:200}
 .ov.open{display:flex}
-.mod{background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:up .25s ease}
+.mod{background:var(--surface-solid);border-radius:var(--radius-lg) var(--radius-lg) 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:up .25s ease}
 @keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @media(min-width:600px){.ov{align-items:center;padding:16px}.mod{border-radius:16px;max-height:88vh}}
-.mod-h{background:var(--blue);color:#fff;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:2}
+.mod-h{background:var(--surface-solid);color:var(--text-primary);padding:13px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border)}
+.mod-h h3{font-family:var(--font-display);font-weight:600;font-size:1.05rem}
 .mod-h h3{font-size:1.05rem;font-weight:700}
-.mod-x{background:rgba(255,255,255,.22);color:#fff;width:30px;height:30px;border-radius:50%;font-size:1.2rem;display:flex;align-items:center;justify-content:center}
+.mod-x{background:rgba(255,255,255,.1);color:var(--text-primary);width:30px;height:30px;border-radius:50%;font-size:1.2rem;display:flex;align-items:center;justify-content:center}
 .mod-b{padding:16px}
 .fg{margin-bottom:12px}
 .fg label{display:block;font-size:.7rem;font-weight:600;color:var(--gray);margin-bottom:3px;text-transform:uppercase}
-.fg input,.fg textarea{width:100%;padding:10px 11px;border:1.5px solid #ddd;border-radius:8px;font-size:.94rem;font-family:inherit}
+.fg input,.fg textarea{width:100%;padding:10px 11px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.94rem;font-family:inherit;background:var(--bg-elevated);color:var(--text-primary)}
 .fg textarea{min-height:78px;resize:vertical}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .info{background:var(--blue-light);border-radius:8px;padding:10px 12px;margin-bottom:9px}
 .info .l{font-size:.66rem;color:var(--gray);font-weight:600;text-transform:uppercase}
 .info .v{font-size:.94rem;font-weight:600}
 .hw{background:var(--cream);border-left:4px solid var(--blue);padding:10px 12px;border-radius:0 8px 8px 0;white-space:pre-wrap;font-size:.9rem;margin-bottom:12px}
-.topics{margin-top:12px;border-top:1px solid #eee;padding-top:11px}
+.topics{margin-top:12px;border-top:1px solid var(--border);padding-top:11px}
 .topics h4{font-size:.9rem;color:var(--blue-dark);margin-bottom:8px}
-.topic{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F3E9DB;border-radius:8px;margin-bottom:6px}
-.topic.ok{background:#E8F5E9}
+.topic{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--accent-soft);border-radius:var(--radius-sm);margin-bottom:6px}
+.topic.ok{background:rgba(159,216,179,.18)}
 .topic .tt{flex:1;font-weight:500;font-size:.86rem}
 .topic .tw{font-size:.74rem;color:var(--success);font-weight:600}
 .add-t{display:flex;gap:6px;margin-top:6px}
-.add-t input{flex:1;padding:8px 10px;border:1.5px solid #ddd;border-radius:8px;font-size:.9rem}
+.add-t input{flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.9rem;background:var(--bg-elevated);color:var(--text-primary)}
 .acts{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
 .done-btn{
   width:100%;padding:12px;border-radius:10px;font-size:.95rem;font-weight:700;margin-top:8px;
-  border:2px solid var(--success);background:#ECFDF5;color:var(--success);
+  border:2px solid var(--success);background:rgba(159,216,179,.12);color:var(--success);
 }
-.done-btn.done{background:var(--success);color:#fff}
+.done-btn.done{background:var(--success);color:#051F20}
 .login-inner{text-align:center;padding:6px 0}
-.login-inner input{width:100%;max-width:220px;padding:12px;border:1.5px solid #ddd;border-radius:8px;font-size:1rem;text-align:center;margin:11px 0 13px}
+.login-inner input{width:100%;max-width:220px;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:1rem;text-align:center;margin:11px 0 13px;background:var(--bg-elevated);color:var(--text-primary)}
 .err{color:var(--danger);font-size:.84rem;margin-top:8px;display:none}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:11px 20px;border-radius:24px;font-weight:600;font-size:.85rem;z-index:300;opacity:0;transition:.25s;pointer-events:none}
 .toast.on{opacity:1}
-.panel{background:#fff;border-radius:14px;border:1.5px solid var(--brown);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
+.panel{background:var(--surface-solid);border-radius:var(--radius-md);border:1px solid var(--border);padding:16px;margin-bottom:16px;box-shadow:var(--shadow)}
 .panel h3{font-size:1rem;color:var(--blue-dark);margin-bottom:12px}
-.stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0e8dc;font-size:.9rem}
+.stat-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.9rem}
 .stat-row:last-child{border-bottom:none}
 .avatar-upload{display:flex;align-items:center;gap:12px;margin-bottom:12px}
 .avatar-big{width:56px;height:56px;border-radius:50%;background:var(--brown);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.2rem;overflow:hidden}
 .avatar-big img{width:100%;height:100%;object-fit:cover}
-.split-toggle{margin:10px 0;padding:10px;background:#F3E9DB;border-radius:8px;font-size:.9rem}
-.teacher-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0e8dc}
+.split-toggle{margin:10px 0;padding:10px;background:var(--accent-soft);border-radius:var(--radius-sm);font-size:.9rem}
+.teacher-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
 .teacher-row:last-child{border-bottom:none}
 .avatar-sm{width:32px;height:32px;border-radius:50%;background:var(--brown);color:#fff;font-weight:700;font-size:.8rem;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
 .avatar-sm img{width:100%;height:100%;object-fit:cover}
@@ -202,7 +242,6 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
 </head>
 <body>
 <div class="owner-bar" id="ownerBar">Владелец · полный доступ</div>
-<div class="admin-bar" id="adminBar">Режим администратора</div>
 <header>
   <div class="logo">📚 Домашка <span id="gBadge">Группа</span></div>
   <div class="header-right">
@@ -211,16 +250,18 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
       <span id="nameText">Гость</span>
       <button class="edit-btn" id="editProfileBtn">изм.</button>
     </div>
-    <button class="btn-outline btn-sm" id="adminBtn">Админ</button>
     <button class="btn-outline btn-sm" id="importBtn" style="display:none">Импорт</button>
     <button class="btn-outline btn-sm" id="syncBtn" style="display:none">Обновить с сайта</button>
     <button class="btn-danger btn-sm" id="clearAllBtn" style="display:none">Очистить всё</button>
+    <button class="btn-outline btn-sm" id="viewToggleBtn">2 недели</button>
+    <button class="btn-outline btn-sm" id="litBtn">📚 Литература</button>
   </div>
 </header>
 <div id="errBox"></div>
 <main>
   <div class="weeks" id="weeks"></div>
   <div id="area"></div>
+  <div id="litScreen" style="display:none"></div>
   <div id="ownerPanel" style="display:none"></div>
 </main>
 
@@ -237,7 +278,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     <div class="mod-h"><h3 id="loginTitle">Вход</h3><button class="mod-x" id="c2">×</button></div>
     <div class="mod-b">
       <div class="login-inner">
-        <p id="loginHint" style="color:#64748B;font-size:.9rem">Введите пароль</p>
+        <p id="loginHint" style="color:var(--text-secondary);font-size:.9rem">Введите пароль</p>
         <input type="password" id="pass" placeholder="Пароль" autocomplete="off">
         <br><button class="btn-blue" id="loginBtn" style="width:140px">Войти</button>
         <p class="err" id="loginErr">Неверный пароль</p>
@@ -255,7 +296,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
         <div>
           <button class="btn-outline btn-sm" id="pickPhoto">Выбрать фото</button>
           <input type="file" id="photoInput" accept="image/*" style="display:none">
-          <p style="font-size:.72rem;color:#64748B;margin-top:4px">до 200 КБ</p>
+          <p style="font-size:.72rem;color:var(--text-secondary);margin-top:4px">до 200 КБ</p>
         </div>
       </div>
       <div class="fg"><label>Имя</label><input type="text" id="profName" placeholder="Твоё имя" maxlength="20"></div>
@@ -269,7 +310,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
   <div class="mod" style="max-width:520px">
     <div class="mod-h"><h3>Импорт расписания</h3><button class="mod-x" id="cImport">×</button></div>
     <div class="mod-b">
-      <p style="font-size:.9rem;color:#64748B;margin-bottom:12px">
+      <p style="font-size:.9rem;color:var(--text-secondary);margin-bottom:12px">
         Скопируй таблицу с сайта универа и вставь сюда. Система попробует сама разложить предметы по дням и парам.
       </p>
       <div class="fg">
@@ -296,6 +337,11 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzcnJxd3ZlbWZsaXd6c3Fsa3ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMDc1NDYsImV4cCI6MjEwNDc4MzU0Nn0.mcnzJ6Fh5eTCJSYXQ6rMkBHAbL5JPIC1UId1DlRfuDY";
   var sb = (typeof supabase !== "undefined") ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
   var myGroupId = null; // resolved from the logged-in profile once on load
+  var myUserId = null; // the signed-in Supabase Auth user's id (for homework_done)
+  var myIsOwner = false; // real Supabase profiles.is_owner (separate from the local password-based owner flag)
+  var slotIdByKey = {}; // "w:d:t:p" -> schedule_slots.id
+  var homeworkIdByKey = {}; // "w:d:t:p" -> homework.id (once one exists)
+  var viewMode = localStorage.getItem("domashka_view_v1") || "day"; // "day" | "grid"
   var TIMES=["08:30–10:00","10:15–11:45","12:00–13:30","14:10–15:35","15:45–17:10","17:20–18:45","18:50–20:15","20:20–21:50"];
   var DAYS=["Пн","Вт","Ср","Чт","Пт","Сб"];
 
@@ -486,18 +532,105 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     return {weeks:weeks};
   }
 
+  function dmyToISO(dmy){
+    var m=String(dmy||"").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if(!m) return null;
+    return m[3]+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0");
+  }
+  function isoToDMY(iso){
+    var m=String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? (m[3]+"."+m[2]+"."+m[1]) : "";
+  }
+
+  // Pull homework/topics/done-marks for the group from Supabase and merge
+  // them into the local slots. This OVERWRITES local hw/due/topics with the
+  // shared version (that's the point - it's shared), but a student's own
+  // "done" mark is looked up by their real Supabase user id, not the old
+  // free-text display name, so it stays correct even if they retype their name.
+  async function syncHomework(){
+    if(!sb || !myGroupId || !myUserId) return;
+    var slotIds=Object.keys(slotIdByKey).map(function(k){ return slotIdByKey[k]; });
+    if(!slotIds.length) return;
+
+    var hwRes=await sb.from("homework").select("id,schedule_slot_id,description,due_date").in("schedule_slot_id", slotIds);
+    var hwByScheduleSlot={};
+    (hwRes.data||[]).forEach(function(h){ hwByScheduleSlot[h.schedule_slot_id]=h; });
+
+    var hwIds=(hwRes.data||[]).map(function(h){ return h.id; });
+    var topicsByHw={};
+    if(hwIds.length){
+      var topicsRes=await sb.from("homework_topics").select("id,homework_id,title,booked_by,profiles(full_name)").in("homework_id", hwIds);
+      (topicsRes.data||[]).forEach(function(t){
+        if(!topicsByHw[t.homework_id]) topicsByHw[t.homework_id]=[];
+        topicsByHw[t.homework_id].push({
+          title:t.title,
+          by:t.booked_by ? ((t.profiles&&t.profiles.full_name)||"кто-то") : "",
+          _id:t.id, _bookedBy:t.booked_by
+        });
+      });
+    }
+
+    var doneRes=hwIds.length ? await sb.from("homework_done").select("homework_id").eq("user_id", myUserId) : {data:[]};
+    var doneSet={};
+    (doneRes.data||[]).forEach(function(d){ doneSet[d.homework_id]=true; });
+
+    homeworkIdByKey={};
+    Object.keys(slotIdByKey).forEach(function(key){
+      var sid=slotIdByKey[key];
+      var h=hwByScheduleSlot[sid];
+      if(!h) return;
+      homeworkIdByKey[key]=h.id;
+      var parts=key.split(":");
+      var w=+parts[0], d=+parts[1], t=+parts[2], p=+parts[3];
+      var day=data.weeks[w] && data.weeks[w].days[d];
+      var slot=day && day.slots[t];
+      var localPart=slot && slot.parts[p];
+      if(!localPart) return;
+      localPart.hw=h.description||"";
+      localPart.due=isoToDMY(h.due_date);
+      localPart.topics=topicsByHw[h.id]||[];
+      if(!localPart.done) localPart.done={};
+      if(user.name){
+        if(doneSet[h.id]) localPart.done[user.name]=true; else delete localPart.done[user.name];
+      }
+    });
+    save();
+  }
+
+  async function ensureHomeworkRow(w,d,t,p){
+    var key=w+":"+d+":"+t+":"+p;
+    if(homeworkIdByKey[key]) return homeworkIdByKey[key];
+    var sid=slotIdByKey[key];
+    if(!sid || !sb) return null;
+    var res=await sb.from("homework").insert({schedule_slot_id:sid}).select("id").single();
+    if(res.error){ console.error(res.error); return null; }
+    homeworkIdByKey[key]=res.data.id;
+    return res.data.id;
+  }
+
+  async function pushHomeworkText(w,d,t,p,hwText,dueText){
+    var hid=await ensureHomeworkRow(w,d,t,p);
+    if(!hid || !sb) return;
+    await sb.from("homework").update({description:hwText||null, due_date:dmyToISO(dueText)}).eq("id", hid);
+  }
+
+
   async function syncFromSupabase(showFeedback){
     if(!sb){ if(showFeedback) toast("Supabase не подключен"); return; }
     try{
       var sess=await sb.auth.getSession();
       var session=sess.data.session;
       if(!session){ if(showFeedback) toast("Сначала войди через страницу входа"); return; }
+      myUserId=session.user.id;
 
       if(!myGroupId){
-        var prof=await sb.from("profiles").select("group_id").eq("id", session.user.id).maybeSingle();
+        var prof=await sb.from("profiles").select("group_id, full_name, is_owner").eq("id", session.user.id).maybeSingle();
         if(!prof.data || !prof.data.group_id){ if(showFeedback) toast("Профиль ещё не привязан к группе"); return; }
         myGroupId=prof.data.group_id;
+        myIsOwner=!!prof.data.is_owner;
+        if(!user.name && prof.data.full_name){ user.name=prof.data.full_name; }
       }
+      await sb.from("profiles").update({last_seen_at:new Date().toISOString()}).eq("id", session.user.id);
 
       var teachersRes=await sb.from("teachers").select("id, full_name").eq("group_id", myGroupId);
       var teacherNameById={};
@@ -506,7 +639,14 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
       var slotsRes=await sb.from("schedule_slots").select("*").eq("group_id", myGroupId);
       if(slotsRes.error) throw new Error(slotsRes.error.message);
 
+      slotIdByKey={};
+      (slotsRes.data||[]).forEach(function(r){
+        var key=(r.week_number-1)+":"+r.day_index+":"+r.slot_index+":"+r.part_index;
+        slotIdByKey[key]=r.id;
+      });
+
       mergeOfficialSchedule(rowsToWeeksShape(slotsRes.data, teacherNameById));
+      await syncHomework();
       render();
       if(showFeedback) toast("Расписание обновлено");
     }catch(e){
@@ -517,17 +657,15 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
   function render(){
     try{
       document.getElementById("gBadge").textContent=data.group||"Группа";
-      document.body.classList.toggle("theme-admin", admin && !owner);
-      document.body.classList.toggle("theme-owner", owner);
-      document.getElementById("adminBar").className="admin-bar"+(admin&&!owner?" on":"");
-      document.getElementById("ownerBar").className="owner-bar"+(owner?" on":"");
-      document.getElementById("adminBtn").textContent=(admin||owner)?"Выйти":"Админ";
-      document.getElementById("importBtn").style.display=(admin||owner)?"inline-block":"none";
-      document.getElementById("syncBtn").style.display=(admin||owner)?"inline-block":"none";
-      document.getElementById("clearAllBtn").style.display=(admin||owner)?"inline-block":"none";
+      document.body.classList.toggle("theme-owner", myIsOwner);
+      document.getElementById("ownerBar").className="owner-bar"+(myIsOwner?" on":"");
+      document.getElementById("importBtn").style.display=myIsOwner?"inline-block":"none";
+      document.getElementById("syncBtn").style.display=myIsOwner?"inline-block":"none";
+      document.getElementById("clearAllBtn").style.display=myIsOwner?"inline-block":"none";
       document.getElementById("weeks").innerHTML="";
-      drawTable();
-      if(owner) drawOwnerPanel(); else document.getElementById("ownerPanel").style.display="none";
+      document.getElementById("viewToggleBtn").textContent=(viewMode==="day")?"2 недели":"← Сегодня";
+      if(viewMode==="day") drawDayView(); else drawTable();
+      if(myIsOwner) drawOwnerPanel(); else document.getElementById("ownerPanel").style.display="none";
     }catch(e){document.getElementById("errBox").style.display="block";document.getElementById("errBox").textContent="Ошибка: "+e.message;}
   }
 
@@ -584,6 +722,32 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     return data.weeks.length ? 0 : -1;
   }
 
+  // Saturday/Sunday never have lessons - jump straight to the upcoming
+  // Monday instead of showing an empty "today" screen.
+  function resolveDisplayDay(){
+    var now=new Date();
+    var jsDay=now.getDay(); // 0=Sun,1=Mon,...,6=Sat
+    var isWeekend=(jsDay===0 || jsDay===6);
+    var targetDate=new Date(now); targetDate.setHours(0,0,0,0);
+    if(isWeekend){
+      targetDate.setDate(targetDate.getDate() + (jsDay===6 ? 2 : 1));
+    }
+    for(var w=0; w<data.weeks.length; w++){
+      var days=data.weeks[w].days;
+      for(var d=0; d<days.length; d++){
+        var ds=days[d].date;
+        if(!ds) continue;
+        var m=ds.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+        if(!m) continue;
+        var dt=new Date(+m[3],+m[2]-1,+m[1]); dt.setHours(0,0,0,0);
+        if(dt.getTime()===targetDate.getTime()) return {week:w, day:d, isWeekend:isWeekend};
+      }
+    }
+    // Dates not populated yet - fall back to plain day-of-week (Monday=0).
+    var dayIndex=isWeekend ? 0 : (jsDay+6)%7;
+    return {week: data.weeks.length?0:-1, day: dayIndex, isWeekend:isWeekend};
+  }
+
   function renderCurrentStatus(info, activeWeek){
     var el=document.getElementById("currentStatus");
     if(!el) return;
@@ -625,6 +789,81 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     el.style.display="flex";
   }
 
+  function drawDayView(){
+    var html="";
+    var info=getTodayInfo();
+    var display=resolveDisplayDay();
+    var activeWeek=display.week;
+    var showDay=display.day;
+    var isLiveToday=!display.isWeekend && activeWeek===currentWeekIndex(info) && showDay===info.day;
+    if(isLiveToday && info.break && info.next>=0 && !hasContentFrom(activeWeek, info.day, info.next)){
+      info.break=false; info.next=-1;
+    }
+    html+='<div id="currentStatus" class="current-status" style="display:none"></div>';
+
+    if(activeWeek<0 || showDay<0){
+      html+='<div class="day-view-header"><div class="dv-day">Расписание пока пустое</div>'+
+            '<div class="dv-date">Загляни на «2 недели», как только появятся данные</div></div>';
+      document.getElementById("area").innerHTML=html;
+      return;
+    }
+
+    var day=data.weeks[activeWeek].days[showDay];
+    html+='<div class="day-view-header"><div class="dv-day">'+day.name+'</div>';
+    if(display.isWeekend) html+='<div class="dv-date" style="color:var(--today-dark);font-weight:600">Сегодня выходной — показываю ближайший понедельник</div>';
+    html+='<div class="dv-date">'+(day.date?esc(day.date):'')+'</div></div>';
+
+    html+='<div class="dv-list">';
+    var shown=0;
+    for(var si=0; si<day.slots.length; si++){
+      var slot=day.slots[si];
+      var isCurrentSlot=(isLiveToday && si===info.slot);
+      for(var pi=0; pi<slot.parts.length; pi++){
+        var part=slot.parts[pi];
+        var has=part.subject||part.hw||(part.topics&&part.topics.length);
+        if(!has && !myIsOwner) continue; // students only see actual lessons
+        if(!has && myIsOwner && pi>0) continue; // don't spam empty split-halves for the owner either
+        shown++;
+        var sc=statusClass(part);
+        var tn=part.topics?part.topics.length:0;
+        var tk=part.topics?part.topics.filter(function(x){return x.by;}).length:0;
+        html+='<div class="dv-card '+(has?"has ":"")+sc+(isCurrentSlot?" current-slot":"")+'" data-w="'+activeWeek+'" data-d="'+showDay+'" data-t="'+si+'" data-part="'+pi+'">';
+        html+='<div class="dv-time">'+TIMES[si].replace('–','–<br>')+'</div>';
+        html+='<div class="dv-body">';
+        if(part.hw||tn) html+='<span class="tag-dz">ДЗ</span>';
+        if(tn) html+='<span class="tag-t">'+tk+'/'+tn+'</span>';
+        html+='<div class="dv-subj'+(has?'':' empty')+'">'+(part.subject?esc(part.subject):(myIsOwner?'Добавить пару':'—'))+'</div>';
+        var metaBits=[];
+        if(part.teacher) metaBits.push(esc(part.teacher));
+        if(part.room) metaBits.push(esc(part.room));
+        if(part.groups) metaBits.push(esc(part.groups));
+        if(metaBits.length) html+='<div class="dv-meta">'+metaBits.join(' · ')+'</div>';
+        html+='</div></div>';
+      }
+    }
+    if(!shown){
+      html+='</div><div class="dv-empty-msg">Пар не найдено'+(myIsOwner?' — переключись на «2 недели», чтобы добавить':'')+'.</div>';
+    } else {
+      html+='</div>';
+    }
+    html+='<div class="dv-more"><button class="btn-outline" id="dvMoreBtn">Показать на 2 недели</button></div>';
+
+    document.getElementById("area").innerHTML=html;
+    if(isLiveToday) renderCurrentStatus(info,activeWeek);
+
+    var dvMore=document.getElementById("dvMoreBtn");
+    if(dvMore) dvMore.onclick=function(){ viewMode="grid"; localStorage.setItem("domashka_view_v1","grid"); render(); };
+
+    var cards=document.getElementById("area").querySelectorAll(".dv-card");
+    for(var c=0;c<cards.length;c++){
+      cards[c].onclick=function(){
+        cur={w:+this.getAttribute("data-w"),d:+this.getAttribute("data-d"),t:+this.getAttribute("data-t")};
+        activePart=+this.getAttribute("data-part");
+        openModal();
+      };
+    }
+  }
+
   function drawTable(){
     var html="";
     var info=getTodayInfo();
@@ -638,7 +877,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     for(var wIdx=0; wIdx<data.weeks.length; wIdx++){
       var week=data.weeks[wIdx];
       var isActiveWeek=(wIdx===activeWeek);
-      if(admin||owner){
+      if(myIsOwner){
         html+='<div class="week-title" style="margin-top:'+(wIdx?18:0)+'px"><input class="wt-input" data-w="'+wIdx+'" value="'+esc(week.title)+'"></div>';
       } else {
         html+='<div class="week-title" style="margin-top:'+(wIdx?18:0)+'px">'+esc(week.title)+'</div>';
@@ -652,7 +891,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
         var day=week.days[di];
         var isToday=(di===info.day && isActiveWeek);
         html+='<tr><td class="day '+(isToday?'current-day':'')+'"><span class="d-name">'+day.name+'</span>';
-        if(admin||owner) html+='<input class="date-inp" data-w="'+wIdx+'" data-d="'+di+'" value="'+esc(day.date)+'" placeholder="дата">';
+        if(myIsOwner) html+='<input class="date-inp" data-w="'+wIdx+'" data-d="'+di+'" value="'+esc(day.date)+'" placeholder="дата">';
         else if(day.date) html+='<span class="d-date">'+esc(day.date)+'</span>';
         html+='</td>';
         for(var si=0;si<day.slots.length;si++){
@@ -666,7 +905,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
               var has=part.subject||part.hw||(part.topics&&part.topics.length);
               html+='<div class="subslot '+(has?"has ":"")+sc+(isActiveWeek&&isToday&&si===info.slot?' current-slot':'')+'" data-part="'+sp+'">';
               if(part.hw||(part.topics&&part.topics.length)) html+='<span class="tag-dz">ДЗ</span>';
-              html+='<div class="s-subj">'+(part.subject?esc(part.subject):'<span style="color:#ccc">—</span>')+'</div>';
+              html+='<div class="s-subj">'+(part.subject?esc(part.subject):'<span style="color:var(--text-secondary)">—</span>')+'</div>';
               html+='<div class="s-meta">';
               if(part.groups) html+=esc(part.groups);
               else if(part.teacher) html+=esc(part.teacher);
@@ -682,7 +921,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
             html+='<td class="slot '+(has?"has ":"")+sc+curClass+'" data-w="'+wIdx+'" data-d="'+di+'" data-t="'+si+'" data-part="0">';
             if(part.hw||tn) html+='<span class="tag-dz">ДЗ</span>';
             if(tn) html+='<span class="tag-t">'+tk+'/'+tn+'</span>';
-            html+='<div class="s-subj">'+(part.subject?esc(part.subject):'<span style="color:#ccc;font-weight:400">—</span>')+'</div>';
+            html+='<div class="s-subj">'+(part.subject?esc(part.subject):'<span style="color:var(--text-secondary);font-weight:400">—</span>')+'</div>';
             html+='<div class="s-meta">';
             if(part.teacher) html+=esc(part.teacher)+'<br>';
             if(part.room) html+=esc(part.room);
@@ -697,7 +936,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     document.getElementById("area").innerHTML=html;
     renderCurrentStatus(info,activeWeek);
 
-    if(admin||owner){
+    if(myIsOwner){
       var wts=document.getElementById("area").querySelectorAll(".wt-input");
       for(var i=0;i<wts.length;i++){
         wts[i].onchange=function(){
@@ -732,7 +971,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     p.style.display="block";
     var h='<div class="panel"><h3>📊 Статистика</h3>';
     var names=Object.keys(data.stats||{});
-    if(!names.length) h+='<p style="color:#64748B;font-size:.9rem">Пока нет данных</p>';
+    if(!names.length) h+='<p style="color:var(--text-secondary);font-size:.9rem">Пока нет данных</p>';
     else{
       names.sort(function(a,b){return (data.stats[b].cells||0)-(data.stats[a].cells||0);});
       for(var i=0;i<names.length;i++){
@@ -743,16 +982,16 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
       }
     }
     h+='</div><div class="panel"><h3>👥 Админы</h3>';
-    if(!data.admins.length) h+='<p style="color:#64748B;font-size:.9rem">Пока нет</p>';
+    if(!data.admins.length) h+='<p style="color:var(--text-secondary);font-size:.9rem">Пока нет</p>';
     else for(var j=0;j<data.admins.length;j++){
       h+='<div class="stat-row"><span>'+esc(data.admins[j])+'</span>';
       h+='<button class="btn-danger btn-sm" onclick="window._rmAdmin(\''+esc(data.admins[j])+'\')">Убрать</button></div>';
     }
     h+='</div>';
     h+='<div class="panel"><h3>👨‍🏫 Преподаватели</h3>';
-    h+='<p style="color:#64748B;font-size:.82rem;margin-bottom:10px">Фото привязывается по точному совпадению ФИО, как оно указано в паре.</p>';
+    h+='<p style="color:var(--text-secondary);font-size:.82rem;margin-bottom:10px">Фото привязывается по точному совпадению ФИО, как оно указано в паре.</p>';
     var tNames=allTeacherNames();
-    if(!tNames.length){ h+='<p style="color:#64748B;font-size:.9rem">Пока никого нет</p>'; }
+    if(!tNames.length){ h+='<p style="color:var(--text-secondary);font-size:.9rem">Пока никого нет</p>'; }
     else{
       tNames.forEach(function(n){
         var ph=teacherPhoto(n);
@@ -767,6 +1006,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     h+='<div class="add-t" style="margin-top:10px"><input id="newTeacherName" placeholder="ФИО нового преподавателя"><button class="btn-blue btn-sm" id="addTeacherBtn">+</button></div>';
     h+='<input type="file" id="teacherPhotoInput" accept="image/*" style="display:none">';
     h+='</div>';
+    h+='<div class="panel"><h3>👥 Ученики</h3><div id="studentsPanelBody"><p style="color:var(--text-secondary);font-size:.9rem">Загрузка...</p></div></div>';
     p.innerHTML=h;
 
     var pendingTeacherName=null;
@@ -806,6 +1046,165 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
       save(); render(); toast("Преподаватель добавлен");
     };
     if(newTInput) newTInput.onkeydown=function(e){ if(e.key==="Enter" && addTBtn) addTBtn.click(); };
+    loadStudentsPanel();
+  }
+
+  // ---------- Literature (reading list) ----------
+  var literatureBooks=[];
+  var showingLit=false;
+
+  async function loadAndDrawLiterature(){
+    var el=document.getElementById("litScreen");
+    el.innerHTML='<div class="dv-empty-msg">Загрузка...</div>';
+    if(!sb || !myGroupId){ el.innerHTML='<div class="dv-empty-msg">Supabase не подключён</div>'; return; }
+    var res=await sb.from("literature_books").select("id,subject,title,storage_path,created_at").eq("group_id", myGroupId).order("subject");
+    if(res.error){ el.innerHTML='<div class="dv-empty-msg">Ошибка: '+esc(res.error.message)+'</div>'; return; }
+    literatureBooks=res.data||[];
+    renderLiteratureScreen();
+  }
+
+  function renderLiteratureScreen(){
+    var el=document.getElementById("litScreen");
+    var h='<div class="lit-header"><h2>📚 Литература</h2>';
+    h+='<input id="litSearch" class="lit-search" placeholder="Поиск по предмету или названию...">';
+    h+='</div>';
+    if(myIsOwner) h+='<div style="max-width:700px;margin:0 auto 14px"><button class="btn-blue" id="addBookBtn" style="width:100%">+ Добавить книгу</button></div>';
+    h+='<div id="litList"></div>';
+    el.innerHTML=h;
+    renderLitList("");
+    document.getElementById("litSearch").oninput=function(){ renderLitList(this.value.trim().toLowerCase()); };
+    var addBtn=document.getElementById("addBookBtn");
+    if(addBtn) addBtn.onclick=openAddBookModal;
+  }
+
+  function renderLitList(query){
+    var list=document.getElementById("litList");
+    if(!literatureBooks.length){
+      list.innerHTML='<div class="dv-empty-msg">Пока ничего нет'+(myIsOwner?' — нажми «Добавить книгу»':'')+'.</div>';
+      return;
+    }
+    var filtered=literatureBooks.filter(function(b){
+      if(!query) return true;
+      return b.subject.toLowerCase().indexOf(query)!==-1 || b.title.toLowerCase().indexOf(query)!==-1;
+    });
+    var bySubject={};
+    filtered.forEach(function(b){ (bySubject[b.subject]=bySubject[b.subject]||[]).push(b); });
+    var subjects=Object.keys(bySubject).sort(function(a,b){ return a.localeCompare(b,"ru"); });
+    if(!subjects.length){ list.innerHTML='<div class="dv-empty-msg">Ничего не найдено</div>'; return; }
+    var h="";
+    subjects.forEach(function(subj){
+      h+='<div class="lit-subject">';
+      h+='<div class="lit-subject-head"><span>'+esc(subj)+'</span><span class="lit-count">'+bySubject[subj].length+'</span></div>';
+      h+='<div class="lit-books" style="display:'+(query?'block':'none')+'">';
+      bySubject[subj].forEach(function(b){
+        h+='<div class="lit-book" data-id="'+b.id+'"><span>'+esc(b.title)+'</span><span class="lit-open">Открыть →</span></div>';
+      });
+      h+='</div></div>';
+    });
+    list.innerHTML=h;
+    var heads=list.querySelectorAll(".lit-subject-head");
+    for(var i=0;i<heads.length;i++){
+      heads[i].onclick=function(){
+        var booksEl=this.parentElement.querySelector(".lit-books");
+        booksEl.style.display=(booksEl.style.display==="none")?"block":"none";
+      };
+    }
+    var bookEls=list.querySelectorAll(".lit-book");
+    for(var j=0;j<bookEls.length;j++){
+      bookEls[j].onclick=async function(){
+        var id=this.getAttribute("data-id");
+        var book=literatureBooks.filter(function(b){ return b.id===id; })[0];
+        if(!book || !sb) return;
+        var signed=await sb.storage.from("literature").createSignedUrl(book.storage_path, 3600);
+        if(signed.error){ toast("Не удалось открыть файл"); return; }
+        window.open(signed.data.signedUrl, "_blank");
+      };
+    }
+  }
+
+  function openAddBookModal(){
+    var h='<div class="fg"><label>Предмет</label><input id="litSubjInput" placeholder="Физика"></div>';
+    h+='<div class="fg"><label>Название книги</label><input id="litTitleInput" placeholder="Курс общей физики"></div>';
+    h+='<div class="fg"><label>PDF-файл</label><input type="file" id="litFileInput" accept="application/pdf"></div>';
+    h+='<div class="acts"><button class="btn-blue" id="litSaveBtn">Загрузить</button></div>';
+    document.getElementById("mTitle").textContent="Новая книга";
+    document.getElementById("mBody").innerHTML=h;
+    document.getElementById("ov1").classList.add("open");
+    document.getElementById("litSaveBtn").onclick=uploadBook;
+  }
+
+  async function uploadBook(){
+    var subject=document.getElementById("litSubjInput").value.trim();
+    var title=document.getElementById("litTitleInput").value.trim();
+    var file=document.getElementById("litFileInput").files[0];
+    if(!subject||!title||!file){ toast("Заполни все поля и выбери файл"); return; }
+    if(file.type!=="application/pdf"){ toast("Только PDF-файлы"); return; }
+    if(file.size>50*1024*1024){ toast("Файл слишком большой (макс. 50МБ)"); return; }
+    var safeName=title.replace(/[^a-zA-Zа-яА-Я0-9_.-]/g,"_").slice(0,60)+".pdf";
+    var path=myGroupId+"/"+Date.now()+"-"+safeName;
+    toast("Загружаю...");
+    var upRes=await sb.storage.from("literature").upload(path, file, {contentType:"application/pdf"});
+    if(upRes.error){ toast("Ошибка загрузки: "+upRes.error.message); return; }
+    var insRes=await sb.from("literature_books").insert({
+      group_id:myGroupId, subject:subject, title:title, storage_path:path, file_size:file.size, uploaded_by:myUserId
+    });
+    if(insRes.error){ toast("Файл загружен, но не сохранился в списке: "+insRes.error.message); return; }
+    close1();
+    toast("Книга добавлена");
+    await loadAndDrawLiterature();
+  }
+
+  async function loadStudentsPanel(){
+    var body=document.getElementById("studentsPanelBody");
+    if(!body) return;
+    if(!sb || !myGroupId){ body.innerHTML='<p style="color:var(--text-secondary);font-size:.9rem">Supabase не подключён</p>'; return; }
+    if(!myIsOwner){
+      body.innerHTML='<p style="color:var(--text-secondary);font-size:.9rem">Этот раздел виден только настоящему владельцу (нужен вход через страницу регистрации с реальным is_owner, а не просто локальный пароль).</p>';
+      return;
+    }
+    var res=await sb.from("profiles").select("id,full_name,trial_until,paid_until,last_seen_at,referred_by,created_at").eq("group_id", myGroupId);
+    if(res.error){ body.innerHTML='<p style="color:#DC2626;font-size:.9rem">Ошибка: '+esc(res.error.message)+'</p>'; return; }
+    var rows=res.data||[];
+
+    var refCounts={};
+    rows.forEach(function(r){ if(r.referred_by) refCounts[r.referred_by]=(refCounts[r.referred_by]||0)+1; });
+
+    var now=new Date();
+    function fmtDate(iso){
+      var d=new Date(iso);
+      return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear();
+    }
+    function fmtLastSeen(iso){
+      if(!iso) return "ни разу не заходил(а)";
+      var d=new Date(iso);
+      var diffH=(now-d)/3600000;
+      if(diffH<1) return "только что";
+      if(diffH<24) return "сегодня";
+      if(diffH<48) return "вчера";
+      return fmtDate(iso);
+    }
+    function statusFor(r){
+      var paid=r.paid_until && new Date(r.paid_until) > now;
+      var trial=r.trial_until && new Date(r.trial_until) > now;
+      if(paid) return {label:"Оплачено до "+fmtDate(r.paid_until), bg:"rgba(159,216,179,.16)", fg:"#9FD8B3"};
+      if(trial) return {label:"Пробный до "+fmtDate(r.trial_until), bg:"rgba(227,192,119,.16)", fg:"#E3C077"};
+      return {label:"Не оплачено", bg:"rgba(217,135,137,.16)", fg:"#D98789"};
+    }
+
+    rows.sort(function(a,b){ return (b.last_seen_at||"").localeCompare(a.last_seen_at||""); });
+
+    var h="";
+    if(!rows.length){
+      h='<p style="color:var(--text-secondary);font-size:.9rem">Пока никто не зарегистрировался</p>';
+    } else {
+      rows.forEach(function(r){
+        var st=statusFor(r);
+        h+='<div class="stat-row"><span>'+esc(r.full_name||"Без имени")+'</span>'+
+           '<span style="background:'+st.bg+';color:'+st.fg+';padding:2px 8px;border-radius:6px;font-size:.78rem;font-weight:600">'+st.label+'</span></div>';
+        h+='<div style="font-size:.78rem;color:var(--text-secondary);margin:-6px 0 10px 2px">Был(а): '+fmtLastSeen(r.last_seen_at)+' · Привёл(а): '+(refCounts[r.id]||0)+'</div>';
+      });
+    }
+    body.innerHTML=h;
   }
   window._rmAdmin=function(name){data.admins=data.admins.filter(function(n){return n!==name;});save();render();toast("Админ убран");};
 
@@ -814,9 +1213,11 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     var part=slot.parts[activePart]||slot.parts[0];
     var day=data.weeks[cur.w].days[cur.d];
     var time=TIMES[cur.t];
-    document.getElementById("mTitle").textContent=part.subject||((admin||owner)?"Новая пара":"Пара");
+    document.getElementById("mTitle").textContent=part.subject||(myIsOwner?"Новая пара":"Пара");
+    var canEditSchedule=myIsOwner;
+    var canEditHomework=!!myUserId;
     var h="";
-    if(admin||owner){
+    if(canEditSchedule){
       h+='<div class="split-toggle">';
       if(slot.split){
         h+='Ячейка разделена на 2 группы. Сейчас редактируешь <b>часть '+(activePart+1)+'</b>. ';
@@ -847,10 +1248,21 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
       if(part.room) h+='<div class="info"><div class="l">Аудитория</div><div class="v">'+esc(part.room)+'</div></div>'; else h+='<div></div>';
       if(part.groups) h+='<div class="info"><div class="l">Группы</div><div class="v">'+esc(part.groups)+'</div></div>'; else h+='<div></div>';
       h+='</div>';
-      if(part.due) h+='<div class="info"><div class="l">Сдать до</div><div class="v">'+esc(part.due)+'</div></div>';
-      h+='<h4 style="font-size:.9rem;color:var(--blue-dark);margin:10px 0 6px">Домашнее задание</h4>';
-      h+=part.hw?'<div class="hw">'+esc(part.hw)+'</div>':'<p style="color:#64748B;font-style:italic;margin-bottom:10px">Не задано</p>';
-      if(part.topics&&part.topics.length) h+='<div class="topics"><h4>Темы (можно забронировать)</h4><div id="tl"></div></div>';
+
+      if(canEditHomework){
+        // Any signed-in group member can add/fix the homework text - this is
+        // the crowdsourced "someone went to the pair and wrote it down" flow.
+        h+='<div class="fg"><label>Домашнее задание</label><textarea id="f5hw" placeholder="Текст задания...">'+esc(part.hw)+'</textarea></div>';
+        h+='<div class="fg"><label>Сдать до (ДД.ММ.ГГГГ)</label><input id="fDueHw" value="'+esc(part.due)+'" placeholder="15.09.2026"></div>';
+        h+='<div class="topics"><h4>Темы (можно забронировать)</h4><div id="tl"></div>';
+        h+='<div class="add-t"><input id="nt" placeholder="Новая тема..."><button class="btn-blue btn-sm" id="at">+</button></div></div>';
+        h+='<div class="acts"><button class="btn-blue" id="svHw">Сохранить задание</button></div>';
+      } else {
+        if(part.due) h+='<div class="info"><div class="l">Сдать до</div><div class="v">'+esc(part.due)+'</div></div>';
+        h+='<h4 style="font-size:.9rem;color:var(--blue-dark);margin:10px 0 6px">Домашнее задание</h4>';
+        h+=part.hw?'<div class="hw">'+esc(part.hw)+'</div>':'<p style="color:var(--text-secondary);font-style:italic;margin-bottom:10px">Не задано</p>';
+        if(part.topics&&part.topics.length) h+='<div class="topics"><h4>Темы (можно забронировать)</h4><div id="tl"></div></div>';
+      }
       // done button
       if(part.hw||(part.topics&&part.topics.length)){
         var isDone=user.name && part.done && part.done[user.name];
@@ -860,7 +1272,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     document.getElementById("mBody").innerHTML=h;
     document.getElementById("ov1").classList.add("open");
     drawTopics(part);
-    if(admin||owner){
+    if(canEditSchedule){
       document.getElementById("sv").onclick=saveSlot;
       document.getElementById("cl").onclick=clearSlot;
       var f2el=document.getElementById("f2"), f2prev=document.getElementById("f2preview");
@@ -884,6 +1296,12 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
         slot.parts=[slot.parts[0]];
         save(); close1(); render(); toast("Ячейка объединена");
       };
+    } else if(canEditHomework){
+      document.getElementById("svHw").onclick=saveHomeworkOnly;
+      document.getElementById("at").onclick=addTopic;
+      document.getElementById("nt").onkeydown=function(e){if(e.key==="Enter")addTopic();};
+      var db2=document.getElementById("doneBtn");
+      if(db2) db2.onclick=toggleDone;
     } else {
       var db=document.getElementById("doneBtn");
       if(db) db.onclick=toggleDone;
@@ -894,7 +1312,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     var list=document.getElementById("tl");
     if(!list) return;
     if(!part.topics||!part.topics.length){
-      list.innerHTML=(admin||owner)?'<p style="color:#999;font-size:.84rem">Тем нет</p>':'';
+      list.innerHTML=myIsOwner?'<p style="color:var(--text-secondary);font-size:.84rem">Тем нет</p>':'';
       return;
     }
     var h="";
@@ -903,9 +1321,9 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
       h+='<div class="topic'+(t.by?' ok':'')+'"><span class="tt">'+esc(t.title)+'</span>';
       if(t.by){
         h+='<span class="tw">✓ '+esc(t.by)+'</span>';
-        if(admin||owner) h+='<button class="btn-outline btn-sm" onclick="window._un('+i+')">Снять</button>';
+        if(myIsOwner) h+='<button class="btn-outline btn-sm" onclick="window._un('+i+')">Снять</button>';
       } else {
-        if(admin||owner) h+='<button class="btn-danger btn-sm" onclick="window._rm('+i+')">×</button>';
+        if(myIsOwner) h+='<button class="btn-danger btn-sm" onclick="window._rm('+i+')">×</button>';
         else h+='<button class="btn-blue btn-sm" onclick="window._cl('+i+')">Забрать</button>';
       }
       h+='</div>';
@@ -927,7 +1345,17 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
       if(!data.stats[user.name]) data.stats[user.name]={visits:0,cells:0,last:""};
       data.stats[user.name].cells=(data.stats[user.name].cells||0)+1;
     }
+    var w0=cur.w, d0=cur.d, t0=cur.t, p0=activePart;
     save(); close1(); render(); toast("Сохранено");
+    pushHomeworkText(w0,d0,t0,p0,part.hw,part.due);
+  }
+  function saveHomeworkOnly(){
+    var part=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];
+    part.hw=document.getElementById("f5hw").value.trim();
+    part.due=document.getElementById("fDueHw").value.trim();
+    var w0=cur.w, d0=cur.d, t0=cur.t, p0=activePart;
+    save(); close1(); render(); toast("Задание сохранено");
+    pushHomeworkText(w0,d0,t0,p0,part.hw,part.due);
   }
   function clearSlot(){
     showConfirm("Очистить?", function(){
@@ -936,7 +1364,7 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
       save(); close1(); render(); toast("Очищено");
     });
   }
-  function addTopic(){
+  async function addTopic(){
     var inp=document.getElementById("nt");
     var title=inp.value.trim();
     if(!title) return;
@@ -944,24 +1372,55 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     if(!part.topics) part.topics=[];
     part.topics.push({title:title,by:""});
     inp.value=""; save(); drawTopics(part);
+    if(sb){
+      var hid=await ensureHomeworkRow(cur.w,cur.d,cur.t,activePart);
+      if(hid){
+        var res=await sb.from("homework_topics").insert({homework_id:hid, title:title}).select("id").single();
+        if(!res.error && res.data){
+          part.topics[part.topics.length-1]._id=res.data.id;
+          save();
+        }
+      }
+    }
   }
-  function toggleDone(){
+  async function toggleDone(){
     if(!user.name){toast("Сначала укажи имя");document.getElementById("editProfileBtn").click();return;}
     var part=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];
     if(!part.done) part.done={};
-    if(part.done[user.name]) delete part.done[user.name];
-    else part.done[user.name]=true;
+    var nowDone;
+    if(part.done[user.name]){ delete part.done[user.name]; nowDone=false; }
+    else { part.done[user.name]=true; nowDone=true; }
+    var w0=cur.w, d0=cur.d, t0=cur.t, p0=activePart;
     save(); close1(); render();
-    toast(part.done[user.name]?"Отмечено выполненным":"Отметка снята");
+    toast(nowDone?"Отмечено выполненным":"Отметка снята");
+    if(sb && myUserId){
+      var hid=await ensureHomeworkRow(w0,d0,t0,p0);
+      if(hid){
+        if(nowDone) await sb.from("homework_done").insert({homework_id:hid, user_id:myUserId});
+        else await sb.from("homework_done").delete().eq("homework_id",hid).eq("user_id",myUserId);
+      }
+    }
   }
-  window._rm=function(i){var p=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];p.topics.splice(i,1);save();drawTopics(p);};
-  window._cl=function(i){
+  window._rm=async function(i){
+    var p=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];
+    var topic=p.topics[i];
+    p.topics.splice(i,1); save(); drawTopics(p);
+    if(sb && topic._id) await sb.from("homework_topics").delete().eq("id",topic._id);
+  };
+  window._cl=async function(i){
     if(!user.name){toast("Сначала укажи имя");document.getElementById("editProfileBtn").click();return;}
     var p=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];
     if(p.topics[i].by){toast("Уже занято");return;}
     p.topics[i].by=user.name; save(); drawTopics(p); render(); toast("Забронировано");
+    if(sb && myUserId && p.topics[i]._id){
+      await sb.from("homework_topics").update({booked_by:myUserId}).eq("id",p.topics[i]._id).is("booked_by",null);
+    }
   };
-  window._un=function(i){var p=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];p.topics[i].by="";save();drawTopics(p);render();};
+  window._un=async function(i){
+    var p=data.weeks[cur.w].days[cur.d].slots[cur.t].parts[activePart];
+    p.topics[i].by=""; save(); drawTopics(p); render();
+    if(sb && p.topics[i]._id) await sb.from("homework_topics").update({booked_by:null}).eq("id",p.topics[i]._id);
+  };
 
   function close1(){document.getElementById("ov1").classList.remove("open");cur=null;}
 
@@ -1013,7 +1472,6 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
     toast(user.name?"Профиль сохранён":"Имя сброшено"); render();
   };
 
-  document.getElementById("adminBtn").onclick=function(){openLogin();};
   document.getElementById("loginBtn").onclick=doLogin;
   document.getElementById("pass").onkeydown=function(e){if(e.key==="Enter")doLogin();};
   document.getElementById("c1").onclick=close1;
@@ -1211,12 +1669,32 @@ td.slot.current-slot,td.slot.has.current-slot{background:#FCE7CB;box-shadow:inse
 
 
   document.getElementById("syncBtn").onclick=function(){ syncFromSupabase(true); };
+  document.getElementById("viewToggleBtn").onclick=function(){
+    viewMode=(viewMode==="day")?"grid":"day";
+    localStorage.setItem("domashka_view_v1",viewMode);
+    render();
+  };
+  document.getElementById("litBtn").onclick=function(){
+    showingLit=!showingLit;
+    document.getElementById("area").style.display=showingLit?"none":"";
+    document.getElementById("litScreen").style.display=showingLit?"block":"none";
+    document.getElementById("viewToggleBtn").style.display=showingLit?"none":"inline-block";
+    this.textContent=showingLit?"← Расписание":"📚 Литература";
+    if(showingLit) loadAndDrawLiterature();
+  };
 
   load(); render();
   syncFromSupabase(false);
   // Refresh the current-day/current-lesson highlight without reloading the page.
   setInterval(function(){ render(); }, 30000);
 })();
+</script>
+<script>
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    });
+  }
 </script>
 </body>
 </html>
