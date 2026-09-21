@@ -1,0 +1,43 @@
+name: Update lecturer schedules
+
+on:
+  schedule:
+    # 03:00 UTC every Monday = ~10:00 Novosibirsk time. Runs weekly, not
+    # daily, since Tim asked for this one to update less often than the
+    # per-group scraper.
+    - cron: "0 3 * * 1"
+  workflow_dispatch: {} # lets you run it manually from the Actions tab
+
+jobs:
+  scrape-lecturers:
+    # Same self-hosted runner as update-schedule.yml, for the same reason:
+    # the site blocks GitHub's cloud IP ranges as "VPN/proxy traffic", so
+    # this has to run from a normal residential connection.
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Puppeteer and stealth plugin
+        run: npm install puppeteer-extra puppeteer-extra-plugin-stealth
+
+      - name: Run lecturer scraper
+        env:
+          SUPABASE_URL: "https://wsrrqwvemfliwzsqlkvg.supabase.co"
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RUCAPTCHA_KEY: ${{ secrets.RUCAPTCHA_KEY }}
+          # Cap how many lecturers a single run scrapes - remove this or
+          # raise it once the first run's timing/results look right.
+          MAX_LECTURERS_PER_RUN: "5"
+        run: node scripts/scrape-lecturers.js
+
+      - name: Upload debug page on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-lecturer-page
+          path: debug-lecturer-page.html
+          retention-days: 7
