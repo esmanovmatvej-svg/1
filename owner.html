@@ -83,6 +83,32 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 .empty-msg,.error-msg{color:var(--text-secondary);font-size:.88rem;padding:20px 4px;text-align:center}
 .error-msg{color:var(--danger)}
 .loading{color:var(--text-secondary);font-size:.88rem;padding:20px 4px;text-align:center}
+
+.tabs{display:flex;gap:8px;margin:22px 0 10px}
+.tab-btn{
+  flex:1;padding:9px;border-radius:var(--radius-pill);border:1.5px solid var(--border);background:var(--surface);
+  color:var(--text-secondary);font-family:var(--font-body);font-weight:600;font-size:.86rem;cursor:pointer;
+}
+.tab-btn.active{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}
+
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:.8rem;color:var(--text-secondary);margin-bottom:5px;font-weight:600}
+.fg input,.fg textarea{
+  width:100%;padding:10px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--border);
+  background:var(--bg);color:var(--text-primary);font-family:var(--font-body);font-size:.92rem;
+}
+.btn-add{
+  width:100%;padding:11px;border-radius:var(--radius-pill);border:none;background:var(--accent);
+  color:var(--accent-contrast);font-weight:700;font-size:.92rem;cursor:pointer;margin-top:4px;
+}
+.btn-add:disabled{opacity:.5}
+.lit-row{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:11px 14px;margin-bottom:8px;box-shadow:var(--shadow);display:flex;justify-content:space-between;align-items:center;gap:8px;
+}
+.lit-row .lname{font-weight:600;font-size:.9rem}
+.lit-row .lsub{font-size:.78rem;color:var(--text-secondary)}
+.lit-row .del-btn{background:none;border:none;color:var(--danger);font-size:.8rem;cursor:pointer;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -117,11 +143,22 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
     <div class="stat-card"><div class="icon">⏳</div><div class="num" id="statTrial">–</div><div class="cap">На пробном</div></div>
   </div>
 
-  <div class="section-title">Ученики</div>
+  <div class="tabs">
+    <button class="tab-btn active" id="tabStudents">Ученики</button>
+    <button class="tab-btn" id="tabTeachers">Преподаватели</button>
+  </div>
   <div id="studentsList"><div class="loading">Загрузка...</div></div>
+
+  <div class="section-title">📚 Литература</div>
+  <div class="fg"><label>Предмет</label><input id="litSubject" placeholder="Физика"></div>
+  <div class="fg"><label>Название книги</label><input id="litTitle" placeholder="Курс общей физики"></div>
+  <div class="fg"><label>PDF-файл</label><input type="file" id="litFile" accept="application/pdf"></div>
+  <button class="btn-add" id="litAddBtn">Загрузить книгу</button>
+  <div id="litList" style="margin-top:14px"></div>
 </div>
 
 <script>
+
 (function(){
   "use strict";
   const SUPABASE_URL = "https://wsrrqwvemfliwzsqlkvg.supabase.co";
@@ -150,6 +187,9 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
     return "Добрый вечер";
   }
 
+  var myGroupIdForUpload=null; // literature needs SOME group_id - we use the owner's own, or the first group
+  var allGroups=[];
+
   async function main(){
     document.getElementById("helloLine").textContent=greetingWord();
     if(!sb){
@@ -162,20 +202,29 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
       document.getElementById("studentsList").innerHTML='<div class="error-msg">Нет входа. Войди через основной сайт (auth.html) в этом же браузере, затем обнови страницу.</div>';
       return;
     }
-    var myProf=await sb.from("profiles").select("full_name,is_owner").eq("id",session.user.id).maybeSingle();
+    var myProf=await sb.from("profiles").select("full_name,is_owner,group_id").eq("id",session.user.id).maybeSingle();
     if(!myProf.data || !myProf.data.is_owner){
       document.getElementById("studentsList").innerHTML='<div class="error-msg">Этот раздел только для владельца.</div>';
       return;
     }
     document.getElementById("nameLine").textContent=myProf.data.full_name || "Владелец";
+    myGroupIdForUpload=myProf.data.group_id;
 
     var groupsRes=await sb.from("groups").select("id,name");
+    allGroups=groupsRes.data||[];
+    if(!myGroupIdForUpload && allGroups.length) myGroupIdForUpload=allGroups[0].id;
+
+    await loadStudents(groupsRes.data||[]);
+    await loadLiterature();
+  }
+
+  async function loadStudents(groupsData){
     var profRes=await sb.from("profiles").select("id,full_name,group_id,trial_until,paid_until,last_seen_at,referred_by,is_owner");
     if(profRes.error){
       document.getElementById("studentsList").innerHTML='<div class="error-msg">Ошибка: '+esc(profRes.error.message)+'</div>';
       return;
     }
-    var rows=(profRes.data||[]).filter(function(r){ return !r.is_owner; }); // owner doesn't count as "a student"
+    var rows=(profRes.data||[]).filter(function(r){ return !r.is_owner; });
     var now=new Date();
     var weekAgo=new Date(now.getTime()-7*86400000);
 
@@ -187,7 +236,7 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
     document.getElementById("ringSub").textContent=activeThisWeek+" из "+rows.length;
 
     document.getElementById("statTotal").textContent=rows.length;
-    document.getElementById("statGroups").textContent=(groupsRes.data||[]).length;
+    document.getElementById("statGroups").textContent=groupsData.length;
     var paidCount=rows.filter(function(r){ return r.paid_until && new Date(r.paid_until)>now; }).length;
     var trialCount=rows.filter(function(r){
       var paid=r.paid_until && new Date(r.paid_until)>now;
@@ -200,7 +249,7 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
     var refCounts={};
     rows.forEach(function(r){ if(r.referred_by) refCounts[r.referred_by]=(refCounts[r.referred_by]||0)+1; });
     var groupNameById={};
-    (groupsRes.data||[]).forEach(function(g){ groupNameById[g.id]=g.name; });
+    (groupsData||[]).forEach(function(g){ groupNameById[g.id]=g.name; });
 
     rows.sort(function(a,b){ return (b.last_seen_at||"").localeCompare(a.last_seen_at||""); });
 
@@ -224,9 +273,87 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
     listEl.innerHTML=h;
   }
 
+  async function loadTeachers(){
+    var listEl=document.getElementById("studentsList");
+    listEl.innerHTML='<div class="loading">Загрузка...</div>';
+    var res=await sb.from("teacher_profiles").select("id,full_name,last_seen_at,created_at");
+    if(res.error){ listEl.innerHTML='<div class="error-msg">Ошибка: '+esc(res.error.message)+'</div>'; return; }
+    var rows=res.data||[];
+    if(!rows.length){ listEl.innerHTML='<div class="empty-msg">Пока никто из преподавателей не зарегистрировался</div>'; return; }
+    var now=new Date();
+    rows.sort(function(a,b){ return (b.last_seen_at||"").localeCompare(a.last_seen_at||""); });
+    var h="";
+    rows.forEach(function(r){
+      h+='<div class="student-row"><div class="top">';
+      h+='<span class="sname">'+esc(r.full_name)+'</span>';
+      h+='<span class="badge" style="background:var(--accent-soft);color:var(--accent)">Учитель</span>';
+      h+='</div><div class="meta">Был(а): '+fmtLastSeen(r.last_seen_at, now)+' · Зарегистрирован(а): '+fmtDate(r.created_at)+'</div></div>';
+    });
+    listEl.innerHTML=h;
+  }
+
+  async function loadLiterature(){
+    var listEl=document.getElementById("litList");
+    if(!allGroups.length){ listEl.innerHTML=''; return; }
+    var groupIds=allGroups.map(function(g){return g.id;});
+    var res=await sb.from("literature_books").select("id,subject,title,storage_path,group_id").in("group_id",groupIds);
+    if(res.error){ listEl.innerHTML='<div class="error-msg">Ошибка: '+esc(res.error.message)+'</div>'; return; }
+    var rows=res.data||[];
+    if(!rows.length){ listEl.innerHTML='<div class="empty-msg">Пока ничего не загружено</div>'; return; }
+    var h="";
+    rows.forEach(function(b){
+      h+='<div class="lit-row"><div><div class="lname">'+esc(b.title)+'</div><div class="lsub">'+esc(b.subject)+'</div></div>';
+      h+='<button class="del-btn" data-id="'+b.id+'" data-path="'+esc(b.storage_path)+'">Удалить</button></div>';
+    });
+    listEl.innerHTML=h;
+    listEl.querySelectorAll(".del-btn").forEach(function(btn){
+      btn.onclick=async function(){
+        await sb.storage.from("literature").remove([this.getAttribute("data-path")]);
+        await sb.from("literature_books").delete().eq("id",this.getAttribute("data-id"));
+        loadLiterature();
+      };
+    });
+  }
+
+  document.getElementById("litAddBtn").onclick=async function(){
+    var subject=document.getElementById("litSubject").value.trim();
+    var title=document.getElementById("litTitle").value.trim();
+    var file=document.getElementById("litFile").files[0];
+    if(!subject||!title||!file){ alert("Заполни предмет, название и выбери файл"); return; }
+    if(!myGroupIdForUpload){ alert("Не найдена группа для загрузки"); return; }
+    var btn=this;
+    btn.disabled=true; btn.textContent="Загружаем...";
+    try{
+      var safeName=title.replace(/[^a-zA-Zа-яА-Я0-9_.-]/g,"_").slice(0,60)+".pdf";
+      var path=myGroupIdForUpload+"/"+Date.now()+"-"+safeName;
+      var up=await sb.storage.from("literature").upload(path, file, {contentType:"application/pdf"});
+      if(up.error){ alert("Ошибка загрузки: "+up.error.message); return; }
+      var ins=await sb.from("literature_books").insert({group_id:myGroupIdForUpload, subject:subject, title:title, storage_path:path, file_size:file.size});
+      if(ins.error){ alert("Файл загружен, но не сохранился в списке: "+ins.error.message); return; }
+      document.getElementById("litSubject").value="";
+      document.getElementById("litTitle").value="";
+      document.getElementById("litFile").value="";
+      await loadLiterature();
+    } finally {
+      btn.disabled=false; btn.textContent="Загрузить книгу";
+    }
+  };
+
+  document.getElementById("tabStudents").onclick=function(){
+    document.getElementById("tabStudents").classList.add("active");
+    document.getElementById("tabTeachers").classList.remove("active");
+    loadStudents(allGroups);
+  };
+  document.getElementById("tabTeachers").onclick=function(){
+    document.getElementById("tabTeachers").classList.add("active");
+    document.getElementById("tabStudents").classList.remove("active");
+    loadTeachers();
+  };
+
   document.getElementById("refreshBtn").onclick=function(){ location.reload(); };
   main();
 })();
+
 </script>
 </body>
 </html>
