@@ -443,11 +443,30 @@ async function run() {
   if (lessonCount === 0) {
     console.error(
       "Found a table that LOOKED like the timetable, but parsed 0 actual lessons out of it. " +
-      "This almost always means the cell layout doesn't match what classifyLines() expects " +
-      "(e.g. the room/subject/teacher lines come in a different order on this page). " +
-      "See debug-page.html (saved next to this script - since this runs on a self-hosted " +
-      "runner, it's sitting right there on disk, no need to download an artifact) to see " +
-      "exactly what one real cell's text looks like, then fix classifyLines() to match."
+      "Dumping the real raw cell contents below so the actual layout is visible directly in " +
+      "this log (no need to open debug-page.html by hand):"
+    );
+    console.error("Detected table has " + best.length + " rows, first row has " + (best[0] || []).length + " columns.");
+    console.error("First 3 rows, ALL columns, raw (| separates columns, ~ marks a line break inside a cell):");
+    for (var r0 = 0; r0 < Math.min(3, best.length); r0++) {
+      console.error("row " + r0 + ": " + (best[r0] || []).map(function (c) { return JSON.stringify((c || "").replace(/\n/g, "~")); }).join(" | "));
+    }
+    console.error("First 8 non-empty data cells found anywhere in the table, raw text:");
+    var shown = 0;
+    for (var r1 = 0; r1 < best.length && shown < 8; r1++) {
+      for (var c1 = 0; c1 < (best[r1] || []).length && shown < 8; c1++) {
+        var cellVal = best[r1][c1];
+        if (cellVal && cellVal.trim() && !/^\d{1,2}[:.]\d{2}/.test(cellVal.trim()) && !Object.keys(DAY_WORDS).some(function (d) { return cellVal.trim().toLowerCase().indexOf(d) === 0; })) {
+          console.error("  [row " + r1 + ", col " + c1 + "]: " + JSON.stringify(cellVal.replace(/\n/g, "~")));
+          shown++;
+        }
+      }
+    }
+    console.error(
+      "This almost always means either (a) classifyLines() doesn't recognise this real line " +
+      "format, or (b) the 'last 8 columns are the time slots' assumption in the row-parsing " +
+      "loop below is picking the wrong columns for this page's table. Compare the dump above " +
+      "against classifyLines() and the dataCols slice further down."
     );
     process.exit(1);
   }
