@@ -443,24 +443,26 @@ async function run() {
   if (lessonCount === 0) {
     console.error(
       "Found a table that LOOKED like the timetable, but parsed 0 actual lessons out of it. " +
-      "Dumping the real raw cell contents below so the actual layout is visible directly in " +
-      "this log (no need to open debug-page.html by hand):"
+      "Dumping every row of the detected table below (this site has a few banner/metadata " +
+      "rows at the very top - 'Расписание занятий...', 'В период с...', 'Группа: ...' - which " +
+      "genuinely span the full width via colspan, so they ate the whole sample budget last " +
+      "time before reaching the real day rows; showing everything this time instead):"
     );
     console.error("Detected table has " + best.length + " rows, first row has " + (best[0] || []).length + " columns.");
-    console.error("First 3 rows, ALL columns, raw (| separates columns, ~ marks a line break inside a cell):");
-    for (var r0 = 0; r0 < Math.min(3, best.length); r0++) {
-      console.error("row " + r0 + ": " + (best[r0] || []).map(function (c) { return JSON.stringify((c || "").replace(/\n/g, "~")); }).join(" | "));
-    }
-    console.error("First 8 non-empty data cells found anywhere in the table, raw text:");
-    var shown = 0;
-    for (var r1 = 0; r1 < best.length && shown < 8; r1++) {
-      for (var c1 = 0; c1 < (best[r1] || []).length && shown < 8; c1++) {
-        var cellVal = best[r1][c1];
-        if (cellVal && cellVal.trim() && !/^\d{1,2}[:.]\d{2}/.test(cellVal.trim()) && !Object.keys(DAY_WORDS).some(function (d) { return cellVal.trim().toLowerCase().indexOf(d) === 0; })) {
-          console.error("  [row " + r1 + ", col " + c1 + "]: " + JSON.stringify(cellVal.replace(/\n/g, "~")));
-          shown++;
+    for (var r0 = 0; r0 < best.length; r0++) {
+      var rowCells = (best[r0] || []).map(function (c) { return JSON.stringify((c || "").replace(/\n/g, "~")); });
+      // Collapse a run of identical adjacent cells (a colspan banner) down to
+      // one shown copy + a count, so a real day row isn't pushed off-screen
+      // by 14 repeats of the same banner string.
+      var collapsed = [];
+      for (var ci = 0; ci < rowCells.length; ci++) {
+        if (collapsed.length && collapsed[collapsed.length - 1].text === rowCells[ci]) {
+          collapsed[collapsed.length - 1].count++;
+        } else {
+          collapsed.push({ text: rowCells[ci], count: 1 });
         }
       }
+      console.error("row " + r0 + ": " + collapsed.map(function (g) { return g.count > 1 ? (g.text + " x" + g.count) : g.text; }).join(" | "));
     }
     console.error(
       "This almost always means either (a) classifyLines() doesn't recognise this real line " +
