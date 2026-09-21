@@ -431,6 +431,28 @@ async function run() {
     });
   });
 
+  var lessonCount = 0;
+  weeks.forEach(function (week) {
+    week.days.forEach(function (day) {
+      day.slots.forEach(function (slot) {
+        slot.parts.forEach(function (part) { if (part.subject || part.groups) lessonCount++; });
+      });
+    });
+  });
+
+  if (lessonCount === 0) {
+    console.error(
+      "Found a table that LOOKED like the timetable, but parsed 0 actual lessons out of it. " +
+      "This almost always means the cell layout doesn't match what classifyLines() expects " +
+      "(e.g. the room/subject/teacher lines come in a different order on this page). " +
+      "See debug-page.html (saved next to this script - since this runs on a self-hosted " +
+      "runner, it's sitting right there on disk, no need to download an artifact) to see " +
+      "exactly what one real cell's text looks like, then fix classifyLines() to match."
+    );
+    process.exit(1);
+  }
+  console.log("Parsed " + lessonCount + " lesson(s) from the table before writing to Supabase.");
+
   await writeToSupabase(weeks);
   console.log("Wrote schedule to Supabase");
 }
