@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Домашка — вход</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3B82C4">
+<link rel="icon" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Домашка">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -45,6 +52,8 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 .ref-box img{width:150px;height:150px;border-radius:8px;margin:10px auto;display:block}
 .ref-link{font-size:.8rem;word-break:break-all;color:var(--blue-dark);background:#fff;padding:8px;border-radius:6px;margin-top:8px}
 .copy-btn{margin-top:10px;padding:8px 14px;border:1.5px solid var(--blue);background:#fff;color:var(--blue-dark);border-radius:8px;font-weight:600;font-size:.85rem;cursor:pointer}
+.back-link{display:inline-block;margin-top:14px;font-size:.85rem;color:var(--gray);cursor:pointer;text-decoration:underline}
+.whoami{font-size:.88rem;color:var(--black);background:var(--blue-light);padding:8px 12px;border-radius:8px;margin-bottom:4px}
 </style>
 </head>
 <body>
@@ -59,8 +68,26 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
     <label>Фамилия Имя Отчество</label>
     <input type="text" id="fullName" placeholder="Иванов Иван Иванович">
     <div class="hint">Мы проверим тебя по списку группы — вводи так же, как в журнале.</div>
-    <button class="btn" id="joinBtn">Войти</button>
+    <button class="btn" id="findBtn">Далее</button>
     <div class="msg" id="msg"></div>
+  </div>
+
+  <div id="passScreen" class="screen">
+    <div class="whoami" id="whoamiBox"></div>
+    <div id="signupFields">
+      <label>Придумай пароль</label>
+      <input type="password" id="pass1" placeholder="Минимум 6 символов" autocomplete="new-password">
+      <label>Повтори пароль</label>
+      <input type="password" id="pass2" placeholder="Ещё раз" autocomplete="new-password">
+      <div class="hint">Этот пароль понадобится, чтобы зайти с другого устройства — не забудь его.</div>
+    </div>
+    <div id="loginFields" style="display:none">
+      <label>Пароль</label>
+      <input type="password" id="passLogin" placeholder="Тот, что придумал(а) при регистрации" autocomplete="current-password">
+    </div>
+    <button class="btn" id="passSubmitBtn">Войти</button>
+    <div class="msg" id="passMsg"></div>
+    <span class="back-link" id="backLink">← Назад, я не тот человек / не та группа</span>
   </div>
 
   <div id="doneScreen" class="screen">
@@ -101,6 +128,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   }
 
   var refFromLink = getRefFromUrl();
+  var pendingGroupId = null, pendingName = null, pendingEmail = null, pendingIsClaimed = null;
 
   async function loadGroups(){
     var sel = document.getElementById("groupSelect");
@@ -112,36 +140,98 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
     sel.innerHTML = res.data.map(function(g){ return '<option value="'+g.id+'">'+g.name+'</option>'; }).join("");
   }
 
-  document.getElementById("joinBtn").onclick = async function(){
+  document.getElementById("findBtn").onclick = async function(){
     clearMsg();
     var groupId = document.getElementById("groupSelect").value;
     var name = document.getElementById("fullName").value.trim();
     if(!groupId){ showMsg("Выбери группу"); return; }
     if(!name || name.split(/\s+/).length < 2){ showMsg("Введи полное ФИО, как в журнале"); return; }
 
-    var btn = document.getElementById("joinBtn");
+    var btn = document.getElementById("findBtn");
     btn.disabled = true; btn.textContent = "Проверяем...";
-
     try{
-      var sess = await sb.auth.getSession();
-      var session = sess.data.session;
+      var res = await sb.rpc("roster_login_email", { p_group_id: groupId, p_full_name: name });
+      if(res.error){ showMsg("Ошибка: " + res.error.message); return; }
+      var row = res.data && res.data[0];
+      if(!row){
+        showMsg("Не нашли тебя в списке этой группы. Проверь имя (как в журнале) и группу, или обратись к старосте.");
+        return;
+      }
+      pendingGroupId = groupId; pendingName = name;
+      pendingEmail = row.email; pendingIsClaimed = row.is_claimed;
+
+      document.getElementById("whoamiBox").textContent = name;
+      document.getElementById("signupFields").style.display = pendingIsClaimed ? "none" : "block";
+      document.getElementById("loginFields").style.display = pendingIsClaimed ? "block" : "none";
+      document.getElementById("passSubmitBtn").textContent = pendingIsClaimed ? "Войти" : "Зарегистрироваться";
+      document.getElementById("passMsg").className = "msg";
+      showScreen("passScreen");
+    } catch(e){
+      showMsg("Что-то пошло не так: " + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = "Далее";
+    }
+  };
+
+  document.getElementById("backLink").onclick = function(){
+    document.getElementById("passMsg").className = "msg";
+    showScreen("joinScreen");
+  };
+
+  function showPassMsg(text){
+    var m = document.getElementById("passMsg");
+    m.textContent = text; m.className = "msg err";
+  }
+
+  document.getElementById("passSubmitBtn").onclick = async function(){
+    var btn = this;
+    var session;
+    if(pendingIsClaimed){
+      var password = document.getElementById("passLogin").value;
+      if(!password){ showPassMsg("Введи пароль"); return; }
+      btn.disabled = true; btn.textContent = "Входим...";
+      try{
+        var signIn = await sb.auth.signInWithPassword({ email: pendingEmail, password: password });
+        if(signIn.error){
+          showPassMsg("Неверный пароль. Если забыл(а) — обратись к старосте, он сможет сбросить.");
+          return;
+        }
+        goToApp();
+      } catch(e){
+        showPassMsg("Что-то пошло не так: " + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = "Войти";
+      }
+      return;
+    }
+
+    // First-time registration.
+    var p1 = document.getElementById("pass1").value;
+    var p2 = document.getElementById("pass2").value;
+    if(p1.length < 6){ showPassMsg("Пароль — минимум 6 символов"); return; }
+    if(p1 !== p2){ showPassMsg("Пароли не совпадают"); return; }
+
+    btn.disabled = true; btn.textContent = "Регистрируем...";
+    try{
+      var signUp = await sb.auth.signUp({ email: pendingEmail, password: p1 });
+      if(signUp.error){ showPassMsg("Ошибка регистрации: " + signUp.error.message); return; }
+      session = signUp.data.session;
       if(!session){
-        var anon = await sb.auth.signInAnonymously();
-        if(anon.error){ showMsg("Не получилось начать сессию: " + anon.error.message); return; }
-        session = anon.data.session;
+        // Some Supabase Auth settings require email confirmation even for
+        // fake addresses - if so, sign in immediately with the same
+        // password instead of leaving the person stuck.
+        var trySignIn = await sb.auth.signInWithPassword({ email: pendingEmail, password: p1 });
+        if(trySignIn.error){ showPassMsg("Не удалось завершить регистрацию: " + trySignIn.error.message); return; }
+        session = trySignIn.data.session;
       }
 
-      var rpc = await sb.rpc("join_by_roster", { p_group_id: groupId, p_full_name: name, p_ref: refFromLink });
+      var rpc = await sb.rpc("join_by_roster", { p_group_id: pendingGroupId, p_full_name: pendingName, p_ref: refFromLink });
       if(rpc.error){
-        if(rpc.error.message.indexOf("not_in_roster") !== -1){
-          showMsg("Не нашли тебя в списке этой группы. Проверь имя (как в журнале) и группу, или обратись к старосте.");
-        } else {
-          showMsg("Ошибка: " + rpc.error.message);
-        }
+        showPassMsg("Ошибка: " + rpc.error.message);
         return;
       }
 
-      var groupRow = await sb.from("groups").select("name").eq("id", groupId).maybeSingle();
+      var groupRow = await sb.from("groups").select("name").eq("id", pendingGroupId).maybeSingle();
       document.getElementById("doneGroup").textContent = groupRow.data ? groupRow.data.name : "";
 
       var link = window.location.origin + window.location.pathname + "?ref=" + session.user.id;
@@ -151,9 +241,9 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
       showScreen("doneScreen");
       setTimeout(goToApp, 1800);
     } catch(e){
-      showMsg("Что-то пошло не так: " + e.message);
+      showPassMsg("Что-то пошло не так: " + e.message);
     } finally {
-      btn.disabled = false; btn.textContent = "Войти";
+      btn.disabled = false; btn.textContent = "Зарегистрироваться";
     }
   };
 
@@ -167,8 +257,6 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
   };
 
   function goToApp(){
-    // The main schedule app isn't wired up to Supabase yet - this is the
-    // handoff point for the next stage.
     window.location.href = "index_3_updated.html";
   }
 
