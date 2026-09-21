@@ -33,16 +33,28 @@ const TIMES = [
 ];
 const DAY_WORDS = { "пн": 0, "понедельник": 0, "вт": 1, "вторник": 1, "ср": 2, "среда": 2, "чт": 3, "четверг": 3, "пт": 4, "пятница": 4, "сб": 5, "суббота": 5 };
 
+// Real site format (confirmed from a live debug dump): ONE line per cell,
+// hyphen-delimited: "<groups> гр.-<subject>-<teacher>-<room>", e.g.
+// "121, 122, 124, 128 гр.-Физика-Глазкова Л. В.-Лек./373 ауд."
+// Splitting from both ends (groups first, then room/teacher last) instead
+// of assuming exactly 4 parts means a subject that happens to contain its
+// own hyphen (e.g. "Научно-исследовательская работа") still lands whole
+// in `subject`, not chopped up.
 function classifyLines(lines) {
   var out = { groups: "", subject: "", teacher: "", room: "" };
-  lines.forEach(function (raw) {
-    var l = raw.trim();
-    if (!l) return;
-    if (/^[\d\s,()]+гр\.?$/i.test(l) && !out.groups) { out.groups = l; return; }
-    if ((/^(лек|пр|лаб)\.?\s*\/.*ауд/i.test(l) || /ауд\.?$/i.test(l)) && !out.room) { out.room = l; return; }
-    if (/^[А-ЯЁ][а-яё]+(\s+[А-ЯЁ]\.){1,2}\s*$/.test(l) && out.subject && !out.teacher) { out.teacher = l; return; }
-    out.subject = out.subject ? out.subject + " " + l : l;
-  });
+  var text = lines.join(" ").trim();
+  if (!text) return out;
+  var parts = text.split("-").map(function (p) { return p.trim(); }).filter(function (p) { return p.length; });
+  if (parts.length >= 4) {
+    out.groups = parts[0];
+    out.room = parts[parts.length - 1];
+    out.teacher = parts[parts.length - 2];
+    out.subject = parts.slice(1, parts.length - 2).join("-");
+  } else if (parts.length > 0) {
+    // Doesn't match the expected 4-part shape - keep everything as the
+    // subject rather than silently dropping a real (if unusual) cell.
+    out.subject = parts.join("-");
+  }
   return out;
 }
 
@@ -380,15 +392,18 @@ async function run() {
 
   await browser.close();
 
-  // Pick the table that actually looks like the timetable: several time
-  // ranges in the header area and several day names in the left column.
-  var best = null;
+  // Pick the table that actually looks like the timetable. Match on a real
+  // "HH:MM - HH:MM" time RANGE, not just any HH:MM - a lone HH:MM also
+  // matches the page's own "Расписание занятий (сформировано: 18:38)"
+  // banner timestamp, which used to trick this into matching that banner
+  // instead of the real header row (confirmed via a live debug dump).
+  var TIME_RANGE_RE = /\d{1,2}[:.]\d{2}\s*-\s*\d{1,2}[:.]\d{2}/g;
+  var best = null, headerRowIdx = -1, dataStartCol = -1;
   for (var t = 0; t < tables.length; t++) {
     var grid = tables[t];
-    var headerText = (grid[0] || []).join(" ").toLowerCase();
-    var leftColText = grid.map(function (r) { return (r[0] || "") + " " + (r[1] || ""); }).join(" ").toLowerCase();
-    var timeHits = (headerText.match(/\d{1,2}[:.]\d{2}/g) || []).length;
-    var dayHits = Object.keys(DAY_WORDS).filter(function (d) { return leftColText.indexOf(d) !== -1; }).length;
+    var wholeText = grid.map(function (r) { return r.join(" "); }).join(" ").toLowerCase();
+    var timeHits = (wholeText.match(TIME_RANGE_RE) || []).length;
+    var dayHits = Object.keys(DAY_WORDS).filter(function (d) { return wholeText.indexOf(d) !== -1; }).length;
     if (timeHits >= 4 && dayHits >= 3) { best = grid; break; }
   }
 
@@ -397,23 +412,46 @@ async function run() {
     process.exit(1);
   }
 
+  // Find the actual header row (may not be row 0 - this site has a few
+  // banner/metadata rows above it) and the column where the real time
+  // slots start, instead of assuming "the last 8 columns".
+  for (var hr = 0; hr < best.length; hr++) {
+    var row0 = best[hr] || [];
+    for (var hc = 0; hc < row0.length; hc++) {
+      if (TIME_RANGE_RE.test(row0[hc] || "")) {
+        TIME_RANGE_RE.lastIndex = 0;
+        headerRowIdx = hr; dataStartCol = hc;
+        break;
+      }
+    }
+    if (headerRowIdx >= 0) break;
+  }
+  if (dataStartCol < 0) dataStartCol = Math.max(0, (best[0] || []).length - TIMES.length); // fallback to the old assumption
+
   var weeks = emptyWeeks();
   var curWeek = 0, curDay = -1;
 
   best.forEach(function (row) {
-    var first = (row[0] || "").trim().toLowerCase();
-    if (/^\d+\s*недел/.test(first)) { curWeek = /^2/.test(first) ? 1 : 0; curDay = -1; return; }
+    var col0 = (row[0] || "").trim().toLowerCase();
+    var col1 = (row[1] || "").trim().toLowerCase();
 
-    var dayMatch = Object.keys(DAY_WORDS).filter(function (d) { return first.indexOf(d) === 0; })[0];
+    // This site repeats the week label on EVERY day row (not just once per
+    // week-section), so week and day are read independently from the same
+    // row rather than treated as mutually exclusive.
+    var weekMatch = /^(\d+)\s*недел/.exec(col0);
+    if (weekMatch) curWeek = (weekMatch[1] === "2") ? 1 : 0;
+
+    var dayMatch = Object.keys(DAY_WORDS).filter(function (d) { return col1.indexOf(d) === 0; })[0];
     if (dayMatch !== undefined) {
       curDay = DAY_WORDS[dayMatch];
       var dm = row.join(" ").match(/\d{1,2}\.\d{1,2}\.\d{4}/);
       if (dm) weeks[curWeek].days[curDay].date = dm[0];
+    } else if (!weekMatch) {
+      return; // neither a week nor a day marker on this row - a banner/header row, skip it
     }
     if (curDay < 0) return;
 
-    // Assume the last 8 columns of the row are the 8 time slots.
-    var dataCols = row.slice(Math.max(0, row.length - TIMES.length));
+    var dataCols = row.slice(dataStartCol, dataStartCol + TIMES.length);
     dataCols.forEach(function (cellText, i) {
       if (i >= 8 || !cellText) return;
       var lines = cellText.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
